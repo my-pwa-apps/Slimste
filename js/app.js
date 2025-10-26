@@ -476,9 +476,18 @@ async function loadAdminSettings() {
             });
         }
         
-        // Show PIN code if it exists
+        // Show PIN code if it exists, or generate one if it doesn't
+        let pinCode;
         if (pinCodeSnapshot.exists()) {
-            const pinCode = pinCodeSnapshot.val();
+            pinCode = pinCodeSnapshot.val();
+        } else if (familyNameSnapshot.exists() && modeSnapshot.exists()) {
+            // Game is configured but no PIN code exists - generate one
+            pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+            await set(ref(db, 'gameState/pinCode'), pinCode);
+            console.log('Generated missing PIN code:', pinCode);
+        }
+        
+        if (pinCode) {
             const pinCodeDisplay = document.getElementById('pinCodeDisplay');
             const pinCodeValue = document.getElementById('pinCodeValue');
             if (pinCodeDisplay && pinCodeValue) {

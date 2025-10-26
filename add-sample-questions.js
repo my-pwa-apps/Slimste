@@ -15,7 +15,8 @@ async function addSampleQuestions() {
                 'Mensen houden het vaak als huisdier',
                 'Het is de beste vriend van de mens'
             ],
-            answer: 'hond'
+            answer: 'hond',
+            options: ['hond', 'kat', 'konijn', 'paard']
         },
         {
             type: 'open-deur',
@@ -26,7 +27,8 @@ async function addSampleQuestions() {
                 'Het staat bekend om tulpen',
                 'Het heeft veel windmolens'
             ],
-            answer: 'nederland'
+            answer: 'nederland',
+            options: ['nederland', 'belgië', 'duitsland', 'frankrijk']
         },
         {
             type: 'open-deur',
@@ -37,7 +39,8 @@ async function addSampleQuestions() {
                 'Apen eten het graag',
                 'Je moet het pellen voor je het eet'
             ],
-            answer: 'banaan'
+            answer: 'banaan',
+            options: ['banaan', 'appel', 'sinaasappel', 'peer']
         },
         {
             type: 'open-deur',
@@ -48,7 +51,8 @@ async function addSampleQuestions() {
                 'Het heeft een stuur en een zadel',
                 'Nederlanders gebruiken het veel'
             ],
-            answer: 'fiets'
+            answer: 'fiets',
+            options: ['fiets', 'auto', 'scooter', 'motor']
         },
         {
             type: 'open-deur',
@@ -59,7 +63,8 @@ async function addSampleQuestions() {
                 'Veel mensen gaan dan op vakantie',
                 'School is dan vaak dicht'
             ],
-            answer: 'zomer'
+            answer: 'zomer',
+            options: ['zomer', 'winter', 'lente', 'herfst']
         },
         {
             type: 'open-deur',
@@ -70,7 +75,8 @@ async function addSampleQuestions() {
                 'Het heeft een dak',
                 'Je gaat er slapen'
             ],
-            answer: 'huis'
+            answer: 'huis',
+            options: ['huis', 'school', 'winkel', 'kantoor']
         },
         {
             type: 'open-deur',
@@ -81,7 +87,8 @@ async function addSampleQuestions() {
                 'Stoplichten hebben deze kleur',
                 'Rozen kunnen deze kleur hebben'
             ],
-            answer: 'rood'
+            answer: 'rood',
+            options: ['rood', 'blauw', 'groen', 'geel']
         },
         {
             type: 'open-deur',
@@ -92,7 +99,8 @@ async function addSampleQuestions() {
                 'Draagt vaak een witte jas',
                 'Schrijft recepten voor'
             ],
-            answer: 'dokter'
+            answer: 'dokter',
+            options: ['dokter', 'verpleger', 'tandarts', 'apotheker']
         },
         {
             type: 'open-deur',
@@ -103,7 +111,8 @@ async function addSampleQuestions() {
                 'Je gebruikt ze om te grijpen',
                 'Hebben vijf vingers'
             ],
-            answer: 'hand'
+            answer: 'hand',
+            options: ['hand', 'voet', 'arm', 'been']
         },
         {
             type: 'open-deur',
@@ -114,7 +123,8 @@ async function addSampleQuestions() {
                 'Zwart-wit gekleurd',
                 'Wadelt als het loopt'
             ],
-            answer: 'pinguïn'
+            answer: 'pinguïn',
+            options: ['pinguïn', 'papegaai', 'struisvogel', 'kiwi']
         },
         {
             type: 'open-deur',
@@ -125,7 +135,8 @@ async function addSampleQuestions() {
                 'Maakt muziek',
                 'Staat vaak in een concertzaal'
             ],
-            answer: 'piano'
+            answer: 'piano',
+            options: ['piano', 'gitaar', 'viool', 'drums']
         },
         {
             type: 'open-deur',
@@ -136,63 +147,52 @@ async function addSampleQuestions() {
                 'Eerste maaltijd van de dag',
                 'Soms met eieren'
             ],
-            answer: 'ontbijt'
+            answer: 'ontbijt',
+            options: ['ontbijt', 'lunch', 'diner', 'avondeten']
         },
 
         // PUZZEL (6 vragen - enough for 90min mode)
         {
             type: 'puzzel',
-            clues1: ['Heeft vier poten', 'Geeft melk', 'Eet gras', 'Zegt "moo"'],
             answer1: 'koe',
-            clues2: ['Vliegt in de lucht', 'Heeft vleugels', 'Legt eieren', 'Heeft een snavel'],
             answer2: 'vogel',
-            clues3: ['Leeft in water', 'Heeft kieuwen', 'Zwemt met vinnen', 'Kan niet praten'],
-            answer3: 'vis'
+            answer3: 'vis',
+            wordOptions: ['koe', 'vogel', 'vis', 'paard', 'hond', 'kat', 'slang', 'muis', 'konijn']
         },
         {
             type: 'puzzel',
-            clues1: ['Rood fruit', 'Klein', 'Groeit laag bij grond', 'Zoet'],
             answer1: 'aardbei',
-            clues2: ['Geel fruit', 'Zuur', 'Maakt limonade', 'Ovaal van vorm'],
             answer2: 'citroen',
-            clues3: ['Oranje fruit', 'Rond', 'Moet je pellen', 'Vol vitamine C'],
-            answer3: 'sinaasappel'
+            answer3: 'sinaasappel',
+            wordOptions: ['aardbei', 'citroen', 'sinaasappel', 'appel', 'banaan', 'peer', 'druif', 'kiwi', 'mango']
         },
         {
             type: 'puzzel',
-            clues1: ['Je draagt het', 'Op je voeten', 'Beschermt tegen regen', 'Komt in paren'],
             answer1: 'schoenen',
-            clues2: ['Je draagt het', 'Op je hoofd', 'Houdt je warm', 'Beschermt tegen zon'],
             answer2: 'hoed',
-            clues3: ['Je draagt het', 'Om je nek', 'Houdt warm', 'Lang stuk stof'],
-            answer3: 'sjaal'
+            answer3: 'sjaal',
+            wordOptions: ['schoenen', 'hoed', 'sjaal', 'broek', 'shirt', 'jas', 'handschoenen', 'sokken', 'riem']
         },
         {
             type: 'puzzel',
-            clues1: ['Heeft wielen', 'Rijdt op straat', 'Vervoert mensen', 'Heeft een motor'],
             answer1: 'auto',
-            clues2: ['Heeft wielen', 'Vliegt in lucht', 'Vervoert mensen', 'Landt op vliegveld'],
             answer2: 'vliegtuig',
-            clues3: ['Heeft wielen', 'Rijdt op rails', 'Vervoert veel mensen', 'Heeft wagons'],
-            answer3: 'trein'
+            answer3: 'trein',
+            wordOptions: ['auto', 'vliegtuig', 'trein', 'fiets', 'boot', 'bus', 'tram', 'metro', 'taxi']
         },
         {
             type: 'puzzel',
-            clues1: ['In de keuken', 'Koud apparaat', 'Bewaart eten', 'Houdt vers'],
             answer1: 'koelkast',
-            clues2: ['In de keuken', 'Verhit apparaat', 'Bakt eten', 'Heeft pitten'],
             answer2: 'fornuis',
-            clues3: ['In de keuken', 'Verhit vloeistof', 'Maakt thee', 'Fluit soms'],
-            answer3: 'waterkoker'
+            answer3: 'waterkoker',
+            wordOptions: ['koelkast', 'fornuis', 'waterkoker', 'oven', 'magnetron', 'blender', 'mixer', 'broodrooster', 'vaatwasser']
         },
         {
             type: 'puzzel',
-            clues1: ['Sport', 'Met bal', 'Op veld', 'Met doelen'],
             answer1: 'voetbal',
-            clues2: ['Sport', 'Met bal', 'Op baan', 'Over net'],
             answer2: 'tennis',
-            clues3: ['Sport', 'Met bal', 'In zwembad', 'Met doelen'],
-            answer3: 'waterpolo'
+            answer3: 'waterpolo',
+            wordOptions: ['voetbal', 'tennis', 'waterpolo', 'hockey', 'basketbal', 'volleybal', 'badminton', 'rugby', 'cricket']
         },
 
         // WOORDZOEKER (12 vragen - enough for 90min mode)
@@ -266,9 +266,19 @@ async function addSampleQuestions() {
                 'Het heeft meer dan 100 kilometers aan grachten',
                 'De stad heeft meer fietsen dan inwoners',
                 'Het Anne Frank Huis is hier gevestigd',
+                'Het Rijksmuseum staat hier'
+            ],
+            factOptions: [
+                'Het is de hoofdstad van Nederland',
+                'Het heeft meer dan 100 kilometers aan grachten',
+                'De stad heeft meer fietsen dan inwoners',
+                'Het Anne Frank Huis is hier gevestigd',
                 'Het Rijksmuseum staat hier',
-                'Het wordt ook wel "Mokum" genoemd',
-                'Schiphol is de luchthaven van deze stad'
+                'Het ligt in België',
+                'Het is de grootste stad van Europa',
+                'Er wonen 10 miljoen mensen',
+                'Het heeft geen grachten',
+                'Het is gebouwd in 2000'
             ]
         },
         {
@@ -279,9 +289,19 @@ async function addSampleQuestions() {
                 'De basis is een plat brooddeeg',
                 'Margherita is een klassieke variant',
                 'Het wordt vaak belegd met kaas',
-                'Tomaat wordt vaak als saus gebruikt',
+                'Het wordt gebakken in een hete oven'
+            ],
+            factOptions: [
+                'Het komt oorspronkelijk uit Italië',
+                'De basis is een plat brooddeeg',
+                'Margherita is een klassieke variant',
+                'Het wordt vaak belegd met kaas',
                 'Het wordt gebakken in een hete oven',
-                'Napels wordt gezien als de bakermat'
+                'Het komt uit China',
+                'Het wordt altijd rauw gegeten',
+                'Het is een soort soep',
+                'Het bevat nooit kaas',
+                'Het wordt gekookt in water'
             ]
         },
         {
@@ -292,9 +312,19 @@ async function addSampleQuestions() {
                 'Het is het middelpunt van ons zonnestelsel',
                 'Het geeft licht en warmte',
                 'De aarde draait eromheen',
-                'Het is ongeveer 150 miljoen km van de aarde',
+                'Het bestaat hoofdzakelijk uit waterstof'
+            ],
+            factOptions: [
+                'Het is een ster',
+                'Het is het middelpunt van ons zonnestelsel',
+                'Het geeft licht en warmte',
+                'De aarde draait eromheen',
                 'Het bestaat hoofdzakelijk uit waterstof',
-                'Een zonnedag duurt ongeveer 8 minuten om de aarde te bereiken'
+                'Het is een planeet',
+                'Het draait om de aarde',
+                'Het bestaat uit steen',
+                'Het geeft geen warmte',
+                'Het is de kleinste ster'
             ]
         },
         {
@@ -304,10 +334,20 @@ async function addSampleQuestions() {
                 'Het is de populairste sport ter wereld',
                 'Een team heeft 11 spelers',
                 'Het WK wordt om de 4 jaar gehouden',
-                'Je mag de bal niet met je handen aanraken (behalve keeper)',
+                'Je mag de bal niet met je handen aanraken',
+                'Een wedstrijd duurt 90 minuten'
+            ],
+            factOptions: [
+                'Het is de populairste sport ter wereld',
+                'Een team heeft 11 spelers',
+                'Het WK wordt om de 4 jaar gehouden',
+                'Je mag de bal niet met je handen aanraken',
                 'Een wedstrijd duurt 90 minuten',
-                'Het doel is om de bal in het doel te krijgen',
-                'De scheidsrechter fluit bij overtredingen'
+                'Een team heeft 5 spelers',
+                'Het WK is elk jaar',
+                'Je moet de bal met je handen spelen',
+                'Een wedstrijd duurt 2 uur',
+                'Het is alleen in Nederland populair'
             ]
         },
         {
@@ -316,11 +356,21 @@ async function addSampleQuestions() {
             facts: [
                 'Het is essentieel voor leven',
                 'Het bestaat uit H2O moleculen',
-                'Het heeft drie fases: vast, vloeibaar en gas',
+                'Het bevriest bij 0 graden Celsius',
+                'Het kookt bij 100 graden Celsius',
+                '70% van de aarde is bedekt met water'
+            ],
+            factOptions: [
+                'Het is essentieel voor leven',
+                'Het bestaat uit H2O moleculen',
                 'Het bevriest bij 0 graden Celsius',
                 'Het kookt bij 100 graden Celsius',
                 '70% van de aarde is bedekt met water',
-                'De mens bestaat voor ongeveer 60% uit water'
+                'Het is giftig voor mensen',
+                'Het bestaat uit CO2',
+                'Het bevriest bij 50 graden',
+                'Het kookt bij 10 graden',
+                'De aarde heeft geen water'
             ]
         },
         {
@@ -331,9 +381,19 @@ async function addSampleQuestions() {
                 'Je moet trappen om vooruit te komen',
                 'Het heeft een stuur en zadel',
                 'Nederlanders gebruiken het veel',
+                'Het is milieuvriendelijk vervoer'
+            ],
+            factOptions: [
+                'Het heeft twee wielen',
+                'Je moet trappen om vooruit te komen',
+                'Het heeft een stuur en zadel',
+                'Nederlanders gebruiken het veel',
                 'Het is milieuvriendelijk vervoer',
-                'Je kunt er een bel op hebben',
-                'Het heeft vaak verlichting'
+                'Het heeft vier wielen',
+                'Het rijdt op benzine',
+                'Het heeft geen stuur',
+                'Niemand gebruikt een fiets',
+                'Het vervuilt de lucht'
             ]
         },
 
@@ -343,8 +403,12 @@ async function addSampleQuestions() {
             category: 'Nederlandse steden',
             answers: [
                 'Amsterdam', 'Rotterdam', 'Utrecht', 'Den Haag', 'Eindhoven',
+                'Groningen', 'Tilburg', 'Almere', 'Breda', 'Nijmegen'
+            ],
+            itemOptions: [
+                'Amsterdam', 'Rotterdam', 'Utrecht', 'Den Haag', 'Eindhoven',
                 'Groningen', 'Tilburg', 'Almere', 'Breda', 'Nijmegen',
-                'Apeldoorn', 'Haarlem', 'Arnhem', 'Enschede', 'Amersfoort'
+                'Parijs', 'Berlijn', 'Londen', 'Brussel', 'Antwerpen'
             ]
         },
         {
@@ -352,6 +416,10 @@ async function addSampleQuestions() {
             category: 'Kleuren van de regenboog',
             answers: [
                 'Rood', 'Oranje', 'Geel', 'Groen', 'Blauw', 'Indigo', 'Violet'
+            ],
+            itemOptions: [
+                'Rood', 'Oranje', 'Geel', 'Groen', 'Blauw', 'Indigo', 'Violet',
+                'Wit', 'Zwart', 'Roze', 'Bruin', 'Grijs'
             ]
         },
         {
@@ -360,6 +428,11 @@ async function addSampleQuestions() {
             answers: [
                 'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
                 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'
+            ],
+            itemOptions: [
+                'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
+                'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December',
+                'Maandag', 'Dinsdag', 'Woensdag'
             ]
         },
         {
@@ -367,8 +440,12 @@ async function addSampleQuestions() {
             category: 'Europese landen',
             answers: [
                 'Nederland', 'België', 'Duitsland', 'Frankrijk', 'Spanje',
+                'Italië', 'Griekenland', 'Portugal', 'Zweden', 'Noorwegen'
+            ],
+            itemOptions: [
+                'Nederland', 'België', 'Duitsland', 'Frankrijk', 'Spanje',
                 'Italië', 'Griekenland', 'Portugal', 'Zweden', 'Noorwegen',
-                'Denemarken', 'Polen', 'Oostenrijk', 'Zwitserland', 'Ierland'
+                'Amerika', 'China', 'Japan', 'Australië', 'Canada'
             ]
         },
         {
@@ -376,8 +453,12 @@ async function addSampleQuestions() {
             category: 'Disney films',
             answers: [
                 'De Leeuwenkoning', 'Frozen', 'Aladdin', 'Mulan', 'Pocahontas',
+                'Assepoester', 'Sneeuwwitje', 'Bambi', 'Dumbo', 'Pinokkio'
+            ],
+            itemOptions: [
+                'De Leeuwenkoning', 'Frozen', 'Aladdin', 'Mulan', 'Pocahontas',
                 'Assepoester', 'Sneeuwwitje', 'Bambi', 'Dumbo', 'Pinokkio',
-                'Peter Pan', 'Jungle Book', 'Aristokatten', 'Robin Hood', 'Tarzan'
+                'Harry Potter', 'Star Wars', 'Lord of the Rings', 'Titanic', 'Avatar'
             ]
         },
         {
@@ -385,8 +466,12 @@ async function addSampleQuestions() {
             category: 'Dieren met vier poten',
             answers: [
                 'Hond', 'Kat', 'Paard', 'Koe', 'Varken', 'Schaap', 'Geit',
-                'Leeuw', 'Tijger', 'Olifant', 'Nijlpaard', 'Neushoorn',
-                'Zebra', 'Giraf', 'Aap'
+                'Leeuw', 'Tijger', 'Olifant'
+            ],
+            itemOptions: [
+                'Hond', 'Kat', 'Paard', 'Koe', 'Varken', 'Schaap', 'Geit',
+                'Leeuw', 'Tijger', 'Olifant',
+                'Slang', 'Vogel', 'Vis', 'Octopus', 'Spin'
             ]
         },
         {
@@ -394,8 +479,12 @@ async function addSampleQuestions() {
             category: 'Groenten',
             answers: [
                 'Wortel', 'Tomaat', 'Komkommer', 'Paprika', 'Sla', 'Ui',
-                'Aardappel', 'Broccoli', 'Bloemkool', 'Prei', 'Courgette',
-                'Aubergine', 'Spinazie', 'Andijvie', 'Knoflook'
+                'Aardappel', 'Broccoli', 'Bloemkool', 'Prei'
+            ],
+            itemOptions: [
+                'Wortel', 'Tomaat', 'Komkommer', 'Paprika', 'Sla', 'Ui',
+                'Aardappel', 'Broccoli', 'Bloemkool', 'Prei',
+                'Appel', 'Banaan', 'Kip', 'Vis', 'Brood'
             ]
         },
         {
@@ -403,8 +492,12 @@ async function addSampleQuestions() {
             category: 'Muziekinstrumenten',
             answers: [
                 'Piano', 'Gitaar', 'Viool', 'Drums', 'Fluit', 'Trompet',
-                'Saxofoon', 'Trombone', 'Klarinet', 'Harp', 'Cello',
-                'Accordeon', 'Xylofoon', 'Mondharmonica', 'Triangel'
+                'Saxofoon', 'Trombone', 'Klarinet', 'Harp'
+            ],
+            itemOptions: [
+                'Piano', 'Gitaar', 'Viool', 'Drums', 'Fluit', 'Trompet',
+                'Saxofoon', 'Trombone', 'Klarinet', 'Harp',
+                'Tafel', 'Stoel', 'Auto', 'Telefoon', 'Computer'
             ]
         },
     ];
