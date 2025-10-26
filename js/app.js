@@ -81,10 +81,29 @@ const GAME_MODES = {
     }
 };
 
+// Initialize default admin password
+async function initializeDefaultPassword() {
+    try {
+        const passwordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+        if (!passwordSnapshot.exists()) {
+            // Don't set a default password - let admin set it on first login
+            console.log('No admin password found - first time setup required');
+            return false; // Indicates first time setup
+        }
+        return true; // Password exists
+    } catch (error) {
+        console.error('Error checking admin password:', error);
+        return false;
+    }
+}
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     // Show loading indicator
     showLoadingMessage();
+    
+    // Initialize default password first (just check, don't set)
+    await initializeDefaultPassword();
     
     initializeNavigation();
     initializeAdminLogin();
@@ -170,6 +189,11 @@ function showView(viewId) {
         }
     }
     
+    // Update admin login UI when showing admin login view
+    if (viewId === 'adminLoginView') {
+        updateAdminLoginUI();
+    }
+    
     // Block access to scoreboard view if not logged in as admin
     if (viewId === 'scoreboardView') {
         const adminLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
@@ -222,31 +246,88 @@ function initializeAdminLogin() {
         e.preventDefault();
         
         const password = document.getElementById('adminLoginPassword').value.trim();
+        const confirmPassword = document.getElementById('adminConfirmPassword').value.trim();
         
         try {
-            // Check if admin password exists, if not set default to 0000
+            // Check if this is first time setup
             const passwordSnapshot = await get(ref(db, 'gameState/adminPassword'));
-            const storedPassword = passwordSnapshot.exists() ? passwordSnapshot.val() : '0000';
+            const isFirstTime = !passwordSnapshot.exists();
             
-            // First time setup - save default password if not exists
-            if (!passwordSnapshot.exists()) {
-                await set(ref(db, 'gameState/adminPassword'), '0000');
-            }
-            
-            if (password === storedPassword) {
+            if (isFirstTime) {
+                // First time setup - create new password
+                if (!confirmPassword) {
+                    showNotification('❌ Bevestig je wachtwoord!', 'error');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    showNotification('❌ Wachtwoorden komen niet overeen!', 'error');
+                    return;
+                }
+                
+                if (password.length < 4) {
+                    showNotification('❌ Wachtwoord moet minimaal 4 tekens zijn!', 'error');
+                    return;
+                }
+                
+                // Save new password
+                await set(ref(db, 'gameState/adminPassword'), password);
                 isAdminLoggedIn = true;
                 sessionStorage.setItem('adminLoggedIn', 'true');
-                showNotification('✅ Admin login geslaagd!', 'success');
+                showNotification('✅ Admin wachtwoord ingesteld! Je bent ingelogd.', 'success');
                 showView('adminView');
                 loadAdminSettings();
             } else {
-                showNotification('❌ Verkeerd wachtwoord!', 'error');
+                // Normal login - verify password
+                const storedPassword = passwordSnapshot.val();
+                
+                if (password === storedPassword) {
+                    isAdminLoggedIn = true;
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    showNotification('✅ Admin login geslaagd!', 'success');
+                    showView('adminView');
+                    loadAdminSettings();
+                } else {
+                    showNotification('❌ Verkeerd wachtwoord!', 'error');
+                }
             }
         } catch (error) {
             console.error('Error during admin login:', error);
             showNotification('❌ Login fout. Probeer opnieuw.', 'error');
         }
     });
+}
+
+// Update admin login UI based on first time setup
+async function updateAdminLoginUI() {
+    try {
+        const passwordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+        const isFirstTime = !passwordSnapshot.exists();
+        
+        const title = document.getElementById('adminLoginTitle');
+        const subtitle = document.getElementById('adminLoginSubtitle');
+        const confirmGroup = document.getElementById('adminConfirmPasswordGroup');
+        const confirmInput = document.getElementById('adminConfirmPassword');
+        const loginBtn = document.getElementById('adminLoginBtn');
+        
+        if (isFirstTime) {
+            // First time setup mode
+            if (title) title.textContent = '🔐 Admin Wachtwoord Instellen';
+            if (subtitle) subtitle.textContent = 'Stel je admin wachtwoord in (minimaal 4 tekens)';
+            if (confirmGroup) confirmGroup.classList.remove('hidden');
+            if (confirmInput) confirmInput.required = true;
+            if (loginBtn) loginBtn.textContent = 'Wachtwoord Instellen';
+        } else {
+            // Normal login mode
+            if (title) title.textContent = '🔐 Admin Login';
+            if (subtitle) subtitle.textContent = 'Vul het admin wachtwoord in';
+            if (confirmGroup) confirmGroup.classList.add('hidden');
+            if (confirmInput) confirmInput.required = false;
+            if (loginBtn) loginBtn.textContent = 'Inloggen';
+        }
+    } catch (error) {
+        console.error('Error updating admin login UI:', error);
+    }
 }
 
 // Check if game is configured

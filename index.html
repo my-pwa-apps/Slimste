@@ -17,19 +17,21 @@
                 </div>
                 
                 <div class="login-box">
-                    <h2>🔐 Admin Login</h2>
-                    <p class="setup-subtitle">Vul het admin wachtwoord in</p>
+                    <h2 id="adminLoginTitle">🔐 Admin Login</h2>
+                    <p class="setup-subtitle" id="adminLoginSubtitle">Vul het admin wachtwoord in</p>
                     
                     <form id="adminLoginForm">
-                        <div class="form-group">
+                        <div class="form-group" id="adminPasswordGroup">
                             <label for="adminLoginPassword">Wachtwoord</label>
-                            <input type="password" id="adminLoginPassword" required placeholder="Standaard: 0000">
-                            <small class="form-hint">
-                                Standaard wachtwoord is 0000
-                            </small>
+                            <input type="password" id="adminLoginPassword" required placeholder="Voer wachtwoord in">
                         </div>
                         
-                        <button type="submit" class="btn-primary">Inloggen</button>
+                        <div class="form-group hidden" id="adminConfirmPasswordGroup">
+                            <label for="adminConfirmPassword">Bevestig Wachtwoord</label>
+                            <input type="password" id="adminConfirmPassword" placeholder="Bevestig je wachtwoord">
+                        </div>
+                        
+                        <button type="submit" class="btn-primary" id="adminLoginBtn">Inloggen</button>
                     </form>
                 </div>
             </div>
