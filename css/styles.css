@@ -1454,6 +1454,35 @@ textarea:hover {
     margin-top: 0;
 }
 
+.answer-input-container .btn-pass {
+    background: linear-gradient(135deg, #FF6B6B, #EE5A6F);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(238, 90, 111, 0.3);
+}
+
+.answer-input-container .btn-pass:hover:not(:disabled) {
+    background: linear-gradient(135deg, #EE5A6F, #DC143C);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(238, 90, 111, 0.4);
+}
+
+.answer-input-container .btn-pass:active {
+    transform: translateY(0);
+}
+
+.answer-input-container .btn-pass:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Scoreboard */
 .scoreboard-container {
     max-width: 1200px;

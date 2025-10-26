@@ -1515,6 +1515,7 @@ function initializeOpenDeur() {
     
     // Answer submission
     const submitBtn = document.getElementById('openDeurSubmit');
+    const passBtn = document.getElementById('openDeurPass');
     const input = document.getElementById('openDeurInput');
     
     submitBtn.onclick = () => {
@@ -1535,6 +1536,25 @@ function initializeOpenDeur() {
             handleIncorrectAnswer();
             input.value = '';
         }
+    };
+    
+    // Pass button
+    passBtn.onclick = () => {
+        clearHintTimeouts();
+        input.disabled = true;
+        submitBtn.disabled = true;
+        passBtn.disabled = true;
+        
+        showNotification(`🚫 Gepast! Het antwoord was: ${question.answer}`, 'error', 4000);
+        
+        setTimeout(() => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuestions.length) {
+                initializeOpenDeur();
+            } else {
+                completeRound();
+            }
+        }, 2500);
     };
     
     // Enter key support
@@ -1622,19 +1642,35 @@ function initializePuzzel() {
     const checkAnswer = (answerNum) => {
         const input = document.getElementById(`puzzelAnswer${answerNum}`);
         const answer = input.value.trim();
-        const correctAnswer = question[`answer${answerNum}`];
         
-        if (answersMatch(answer, correctAnswer)) {
-            foundAnswers[answerNum - 1] = true;
+        // Check against all 3 possible answers (order doesn't matter)
+        let matchedAnswerNum = null;
+        let matchedAnswer = null;
+        
+        for (let i = 1; i <= 3; i++) {
+            const correctAnswer = question[`answer${i}`];
+            if (answersMatch(answer, correctAnswer)) {
+                // Check if this answer hasn't been found yet
+                if (!foundAnswers[i - 1]) {
+                    matchedAnswerNum = i;
+                    matchedAnswer = correctAnswer;
+                    break;
+                }
+            }
+        }
+        
+        if (matchedAnswerNum) {
+            foundAnswers[matchedAnswerNum - 1] = true;
             input.classList.add('correct');
             input.disabled = true;
+            input.value = matchedAnswer; // Show the correct answer
             
             // Highlight correct clues in grid
-            const correctClues = question[`clues${answerNum}`];
+            const correctClues = question[`clues${matchedAnswerNum}`];
             const cells = gridDiv.querySelectorAll('.puzzle-cell');
             cells.forEach(cell => {
                 if (correctClues.includes(cell.dataset.clue)) {
-                    cell.classList.add(`found-${answerNum}`);
+                    cell.classList.add(`found-${matchedAnswerNum}`);
                 }
             });
             
@@ -1654,7 +1690,19 @@ function initializePuzzel() {
                 updateTeamSeconds(5);
             }
         } else {
-            handleIncorrectAnswer();
+            // Check if already found
+            let alreadyFound = false;
+            for (let i = 1; i <= 3; i++) {
+                if (foundAnswers[i - 1] && answersMatch(answer, question[`answer${i}`])) {
+                    alreadyFound = true;
+                    showNotification('⚠️ Dit antwoord is al gevonden!', 'warning', 2000);
+                    break;
+                }
+            }
+            
+            if (!alreadyFound) {
+                handleIncorrectAnswer();
+            }
             input.value = '';
         }
     };
@@ -1666,6 +1714,35 @@ function initializePuzzel() {
             checkAnswer(answerNum);
         };
     });
+    
+    // Pass button
+    const passBtn = document.getElementById('puzzelPass');
+    passBtn.onclick = () => {
+        // Disable all inputs
+        input1.disabled = true;
+        input2.disabled = true;
+        input3.disabled = true;
+        document.querySelectorAll('.btn-check').forEach(btn => btn.disabled = true);
+        passBtn.disabled = true;
+        
+        // Show correct answers
+        const answers = [
+            `Woord 1: ${question.answer1}`,
+            `Woord 2: ${question.answer2}`,
+            `Woord 3: ${question.answer3}`
+        ];
+        
+        showNotification(`🚫 Gepast! De antwoorden waren:\n${answers.join('\n')}`, 'error', 5000);
+        
+        setTimeout(() => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuestions.length) {
+                initializePuzzel();
+            } else {
+                completeRound();
+            }
+        }, 3000);
+    };
     
     // Enter key support
     input1.onkeypress = (e) => { if (e.key === 'Enter') checkAnswer(1); };
@@ -1758,6 +1835,7 @@ function initializeWatWeetU() {
     const answersDiv = document.getElementById('watWeetUAnswers');
     const input = document.getElementById('watWeetUInputField');
     const submitBtn = document.getElementById('watWeetUSubmit');
+    const passBtn = document.getElementById('watWeetUPass');
     const scoreDiv = document.getElementById('watWeetUScore');
     
     subjectDiv.textContent = `Wat Weet U Over: ${question.subject}`;
@@ -1765,6 +1843,7 @@ function initializeWatWeetU() {
     input.value = '';
     input.disabled = false;
     submitBtn.disabled = false;
+    passBtn.disabled = false;
     timerDiv.classList.remove('warning');
     
     let foundAnswers = [];
@@ -1798,6 +1877,7 @@ function initializeWatWeetU() {
         gameActive = false;
         input.disabled = true;
         submitBtn.disabled = true;
+        passBtn.disabled = true;
         
         // Show remaining answers
         question.facts.forEach(fact => {
@@ -1874,7 +1954,7 @@ function initializeWatWeetU() {
             return;
         }
         
-        // Check if answer matches any fact (with fuzzy matching)
+        // Check if answer matches any fact (with partial matching on essential parts)
         let isCorrect = false;
         let matchedFact = null;
         
@@ -1887,12 +1967,58 @@ function initializeWatWeetU() {
                 continue;
             }
             
-            // Check for fuzzy match
+            // Check for full fuzzy match first
             if (answersMatch(answer, fact)) {
                 isCorrect = true;
                 matchedFact = fact;
                 foundAnswers.push(normalizedFact);
                 break;
+            }
+            
+            // Common Dutch stopwords that should be ignored
+            const stopWords = [
+                'de', 'het', 'een', 'der', 'des', 'den',  // Articles
+                'en', 'of', 'aan', 'bij', 'van', 'voor', 'met', 'in', 'op', 'uit', 'te', 'tot',  // Prepositions
+                'is', 'zijn', 'was', 'waren', 'heeft', 'hebben', 'had', 'hadden', 'wordt', 'worden',  // Verbs
+                'die', 'dat', 'deze', 'dit', 'die',  // Demonstratives
+                'er', 'ze', 'hij', 'zij', 'hun', 'haar',  // Pronouns
+                'ook', 'maar', 'want', 'dus', 'omdat',  // Conjunctions
+                'zeer', 'veel', 'meer', 'minder'  // Quantifiers
+            ];
+            
+            // Check for partial match on essential parts (minimum 60% of words, excluding stopwords)
+            const factWords = normalizedFact.split(/\s+/).filter(w => w.length > 0 && !stopWords.includes(w));
+            const answerWords = normalizedAnswer.split(/\s+/).filter(w => w.length > 0 && !stopWords.includes(w));
+            
+            if (factWords.length > 0 && answerWords.length > 0) {
+                let matchedWords = 0;
+                
+                // Check each answer word against fact words
+                for (const answerWord of answerWords) {
+                    // Skip very short words (1-2 characters) as they're likely not meaningful
+                    if (answerWord.length <= 2) continue;
+                    
+                    for (const factWord of factWords) {
+                        // Check if words match with small typo tolerance
+                        if (answerWord === factWord || levenshteinDistance(answerWord, factWord) <= 1) {
+                            matchedWords++;
+                            break;
+                        }
+                    }
+                }
+                
+                // Accept if:
+                // 1. At least 60% of fact's essential words are matched, OR
+                // 2. User typed a single meaningful word (4+ chars) that exists in the fact
+                const matchPercentage = matchedWords / factWords.length;
+                const singleWordMatch = answerWords.length === 1 && answerWords[0].length >= 4 && matchedWords > 0;
+                
+                if (matchPercentage >= 0.6 || singleWordMatch) {
+                    isCorrect = true;
+                    matchedFact = fact;
+                    foundAnswers.push(normalizedFact);
+                    break;
+                }
             }
         }
         
@@ -1943,6 +2069,50 @@ function initializeWatWeetU() {
         }
     };
     
+    // Pass button to skip question
+    passBtn.onclick = () => {
+        if (!gameActive) return;
+        
+        clearInterval(timer);
+        gameActive = false;
+        input.disabled = true;
+        submitBtn.disabled = true;
+        passBtn.disabled = true;
+        
+        // Show remaining answers in red/faded
+        question.facts.forEach(fact => {
+            const normalizedFact = normalizeText(fact);
+            if (!foundAnswers.includes(normalizedFact)) {
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'wwu-answer-item';
+                answerDiv.style.opacity = '0.5';
+                answerDiv.style.color = '#FF6B6B';
+                answerDiv.textContent = fact;
+                answersDiv.appendChild(answerDiv);
+            }
+        });
+        
+        // Award points only for what was found
+        const points = correctCount * 3;
+        setTimeout(() => {
+            if (correctCount > 0) {
+                showNotification(`🚫 Gepast! Je hebt ${correctCount} feiten gevonden en ${points} seconden verdiend.`, 'warning', 3000);
+                updateTeamSeconds(points);
+            } else {
+                showNotification('🚫 Gepast! Geen feiten gevonden.', 'error', 3000);
+            }
+            
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < currentQuestions.length) {
+                    initializeWatWeetU();
+                } else {
+                    completeRound();
+                }
+            }, 2000);
+        }, 1500);
+    };
+    
     input.focus();
 }
 
@@ -1958,6 +2128,7 @@ function initializeCollectiefGeheugen() {
     const itemsDiv = document.getElementById('collectiefItems');
     const input = document.getElementById('collectiefInput');
     const submitBtn = document.getElementById('collectiefSubmit');
+    const passBtn = document.getElementById('collectiefPass');
     
     categoryDiv.textContent = question.category;
     itemsDiv.innerHTML = '';
@@ -1965,8 +2136,11 @@ function initializeCollectiefGeheugen() {
     let foundItems = [];
     let incorrectAttempts = 0;
     const maxIncorrect = 3;
+    let gameActive = true;
     
     submitBtn.onclick = () => {
+        if (!gameActive) return;
+        
         const answer = input.value.trim();
         if (!answer) return;
         
@@ -2010,6 +2184,11 @@ function initializeCollectiefGeheugen() {
             input.value = '';
             
             if (foundItems.length === question.answers.length) {
+                gameActive = false;
+                input.disabled = true;
+                submitBtn.disabled = true;
+                passBtn.disabled = true;
+                
                 handleCorrectAnswer(30);
                 
                 setTimeout(() => {
@@ -2037,6 +2216,11 @@ function initializeCollectiefGeheugen() {
             input.value = '';
             
             if (incorrectAttempts >= maxIncorrect) {
+                gameActive = false;
+                input.disabled = true;
+                submitBtn.disabled = true;
+                passBtn.disabled = true;
+                
                 handleIncorrectAnswer();
                 setTimeout(() => {
                     currentQuestionIndex++;
@@ -2051,9 +2235,51 @@ function initializeCollectiefGeheugen() {
     };
     
     input.onkeypress = (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && gameActive) {
             submitBtn.click();
         }
+    };
+    
+    // Pass button to skip question
+    passBtn.onclick = () => {
+        if (!gameActive) return;
+        
+        gameActive = false;
+        input.disabled = true;
+        submitBtn.disabled = true;
+        passBtn.disabled = true;
+        
+        // Show remaining answers in faded style
+        question.answers.forEach(answer => {
+            const normalizedAnswer = normalizeText(answer);
+            if (!foundItems.some(item => normalizeText(item) === normalizedAnswer)) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'memory-item';
+                itemDiv.style.opacity = '0.5';
+                itemDiv.style.color = '#FF6B6B';
+                itemDiv.textContent = answer;
+                itemsDiv.appendChild(itemDiv);
+            }
+        });
+        
+        // Award points only for found items
+        const points = foundItems.length * 3;
+        setTimeout(() => {
+            if (foundItems.length > 0) {
+                showNotification(`🚫 Gepast! Je hebt ${foundItems.length} items gevonden en ${points} seconden verdiend.`, 'warning', 3000);
+            } else {
+                showNotification('🚫 Gepast! Geen items gevonden.', 'error', 3000);
+            }
+            
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < currentQuestions.length) {
+                    initializeCollectiefGeheugen();
+                } else {
+                    completeRound();
+                }
+            }, 2000);
+        }, 1500);
     };
 }
 
