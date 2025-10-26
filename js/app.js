@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedTeam = sessionStorage.getItem('currentTeam');
     if (savedTeam) {
         currentTeam = JSON.parse(savedTeam);
-        updateTeamDisplay();
+        await updateTeamDisplay();
     }
     
     // Hide loading after 2 seconds
@@ -726,7 +726,7 @@ function initializeTeamForm() {
             currentTeam.id = newTeamRef.key;
             sessionStorage.setItem('currentTeam', JSON.stringify(currentTeam));
             
-            updateTeamDisplay();
+            await updateTeamDisplay();
             
             // Go to lobby instead of game view
             showView('lobbyView');
@@ -739,7 +739,7 @@ function initializeTeamForm() {
     });
 }
 
-function updateTeamDisplay() {
+async function updateTeamDisplay() {
     if (!currentTeam) return;
     
     document.getElementById('currentTeamName').textContent = currentTeam.name;
@@ -757,7 +757,7 @@ function updateTeamDisplay() {
     completedRounds = currentTeam.completedRounds || [];
     
     // Update completed rounds in UI
-    updateCompletedRoundsUI();
+    await updateCompletedRoundsUI();
 }
 
 async function updateCompletedRoundsUI() {
@@ -773,6 +773,8 @@ async function updateCompletedRoundsUI() {
         if (completedRounds.includes(roundType)) {
             btn.classList.add('completed');
             btn.disabled = false;
+            btn.classList.remove('locked', 'next-round');
+            btn.removeAttribute('title');
         } 
         // Check if this is the next round to play
         else if (roundIndex === completedRounds.length) {
@@ -788,6 +790,7 @@ async function updateCompletedRoundsUI() {
                 btn.classList.remove('completed', 'locked');
                 btn.classList.add('next-round');
                 btn.disabled = false;
+                btn.removeAttribute('title');
             } else {
                 btn.classList.remove('completed', 'next-round');
                 btn.classList.add('locked');
@@ -806,6 +809,7 @@ async function updateCompletedRoundsUI() {
         else {
             btn.classList.remove('completed', 'locked', 'next-round');
             btn.disabled = false;
+            btn.removeAttribute('title');
         }
     }
 }
@@ -986,8 +990,12 @@ function initializeRoundSelection() {
     // Back buttons
     const backButtons = document.querySelectorAll('.btn-back');
     backButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            returnToRoundSelection();
+        btn.addEventListener('click', async () => {
+            try {
+                await returnToRoundSelection();
+            } catch (error) {
+                console.error('Error returning to round selection:', error);
+            }
         });
     });
     
@@ -995,7 +1003,11 @@ function initializeRoundSelection() {
     onValue(ref(db, 'teams'), async () => {
         // Only update if we're on the round selection screen
         if (document.getElementById('roundSelection').classList.contains('active')) {
-            await updateCompletedRoundsUI();
+            try {
+                await updateCompletedRoundsUI();
+            } catch (error) {
+                console.error('Error updating rounds UI from listener:', error);
+            }
         }
     });
 }
@@ -1053,14 +1065,14 @@ async function startRound(roundType) {
     }
 }
 
-function returnToRoundSelection() {
+async function returnToRoundSelection() {
     document.querySelectorAll('.round-content').forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById('roundSelection').classList.add('active');
     
     // Update UI to reflect completed rounds
-    updateCompletedRoundsUI();
+    await updateCompletedRoundsUI();
 }
 
 async function loadQuestionsForRound(roundType) {
@@ -1771,11 +1783,11 @@ async function completeRound() {
         }
     }
     
+    // Ensure local UI reflects latest team data
+    await updateTeamDisplay();
+    
     // Check if all teams completed this round
     const allTeamsCompleted = await checkAllTeamsCompletedRound(currentRound);
-    
-    // Update UI BEFORE showing notification and returning
-    updateCompletedRoundsUI();
     
     if (allTeamsCompleted) {
         showNotification(`✅ Ronde voltooid! Je hebt nu ${teamSeconds} seconden. Volgende ronde is beschikbaar!`, 'success');
@@ -1784,7 +1796,7 @@ async function completeRound() {
     }
     
     // Return to round selection
-    returnToRoundSelection();
+    await returnToRoundSelection();
     
     // Trigger scoreboard refresh
     loadScoreboard();
@@ -1794,7 +1806,6 @@ async function completeRound() {
 function loadScoreboard() {
     try {
         const gameStateRef = ref(db, 'gameState');
-        const teamsRef = ref(db, 'teams');
         
         // Remove old listener if exists
         if (scoreboardListener) {
@@ -1861,7 +1872,13 @@ function loadLobbyTeams() {
             const teams = Object.keys(teamsData).map(key => ({ id: key, ...teamsData[key] }));
             
             if (teams.length === 0) {
-                lobbyTeamsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">Nog geen teams aangemeld...</p>';
+                lobbyTeamsList.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; background: rgba(255, 255, 255, 0.05); border-radius: 15px; margin-top: 20px;">
+                        <div style="font-size: 3rem; margin-bottom: 20px;">👥</div>
+                        <p style="font-size: 1.2rem; margin: 10px 0; opacity: 0.9;">Nog geen teams aangemeld</p>
+                        <p style="opacity: 0.7; margin-top: 10px;">Teams kunnen zich aanmelden met de bovenstaande PIN code</p>
+                    </div>
+                `;
                 return;
             }
             
@@ -1896,7 +1913,13 @@ function loadLobbyTeams() {
                 lobbyTeamsList.appendChild(teamCard);
             });
         } else {
-            lobbyTeamsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">Nog geen teams aangemeld...</p>';
+            lobbyTeamsList.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; background: rgba(255, 255, 255, 0.05); border-radius: 15px; margin-top: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">👥</div>
+                    <p style="font-size: 1.2rem; margin: 10px 0; opacity: 0.9;">Nog geen teams aangemeld</p>
+                    <p style="opacity: 0.7; margin-top: 10px;">Teams kunnen zich aanmelden met de bovenstaande PIN code</p>
+                </div>
+            `;
         }
     });
 }
