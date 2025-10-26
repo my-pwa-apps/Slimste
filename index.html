@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De Slimste Meijers</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Login/Team Registration View -->
+        <div id="loginView" class="view active">
+            <div class="container">
+                <div class="logo-container">
+                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight">MEIJERS</span></h1>
+                </div>
+                
+                <div class="login-box">
+                    <h2>Team Aanmelden</h2>
+                    <form id="teamForm">
+                        <div class="form-group">
+                            <label for="teamName">Teamnaam (Gezinsnaam)</label>
+                            <input type="text" id="teamName" required placeholder="bijv. Familie Jansen">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Teamleden (1-4 spelers)</label>
+                            <div id="playerInputs">
+                                <input type="text" class="player-input" placeholder="Speler 1" required>
+                                <input type="text" class="player-input" placeholder="Speler 2">
+                            </div>
+                            <button type="button" id="addPlayerBtn" class="btn-secondary">+ Speler Toevoegen</button>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">Start het Spel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game View -->
+        <div id="gameView" class="view">
+            <div class="game-header">
+                <div class="team-info">
+                    <h2 id="currentTeamName"></h2>
+                    <div id="playersList"></div>
+                </div>
+                <div class="score-display">
+                    <div class="seconds-display">
+                        <span class="label">Seconden</span>
+                        <span id="teamSeconds" class="score-value">60</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-content">
+                <div id="roundContainer">
+                    <!-- Round selection -->
+                    <div id="roundSelection" class="round-select active">
+                        <h2>Kies een Ronde</h2>
+                        <div class="round-buttons">
+                            <button class="round-btn" data-round="open-deur">
+                                <span class="round-number">1</span>
+                                <span class="round-name">De Open Deur</span>
+                            </button>
+                            <button class="round-btn" data-round="puzzel">
+                                <span class="round-number">2</span>
+                                <span class="round-name">De Puzzel</span>
+                            </button>
+                            <button class="round-btn" data-round="galerij">
+                                <span class="round-number">3</span>
+                                <span class="round-name">De Galerij</span>
+                            </button>
+                            <button class="round-btn" data-round="collectief-geheugen">
+                                <span class="round-number">4</span>
+                                <span class="round-name">Het Collectief Geheugen</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Open Deur Round -->
+                    <div id="openDeurRound" class="round-content">
+                        <h2 class="round-title">De Open Deur</h2>
+                        <div class="question-display">
+                            <div id="openDeurHints" class="hints-container"></div>
+                            <div id="openDeurAnswer" class="answer-input-container">
+                                <input type="text" id="openDeurInput" placeholder="Type je antwoord...">
+                                <button id="openDeurSubmit" class="btn-primary">Bevestig</button>
+                            </div>
+                        </div>
+                        <button class="btn-back">← Terug naar Rondes</button>
+                    </div>
+
+                    <!-- Puzzel Round -->
+                    <div id="puzzelRound" class="round-content">
+                        <h2 class="round-title">De Puzzel</h2>
+                        <div class="question-display">
+                            <div id="puzzelQuestion" class="puzzle-question"></div>
+                            <div id="puzzelLetters" class="puzzle-letters"></div>
+                            <div id="puzzelAnswer" class="puzzle-answer-display"></div>
+                        </div>
+                        <button class="btn-back">← Terug naar Rondes</button>
+                    </div>
+
+                    <!-- Galerij Round -->
+                    <div id="galerijnRound" class="round-content">
+                        <h2 class="round-title">De Galerij</h2>
+                        <div class="question-display">
+                            <div id="galerijnImages" class="gallery-grid"></div>
+                            <div id="galerijnQuestion" class="gallery-question"></div>
+                            <div id="galerijnAnswer" class="answer-input-container">
+                                <input type="text" id="galerijnInput" placeholder="Type je antwoord...">
+                                <button id="galerijnSubmit" class="btn-primary">Bevestig</button>
+                            </div>
+                        </div>
+                        <button class="btn-back">← Terug naar Rondes</button>
+                    </div>
+
+                    <!-- Collectief Geheugen Round -->
+                    <div id="collectiefRound" class="round-content">
+                        <h2 class="round-title">Het Collectief Geheugen</h2>
+                        <div class="question-display">
+                            <div id="collectiefCategory" class="memory-category"></div>
+                            <div id="collectiefItems" class="memory-items"></div>
+                            <div id="collectiefAnswer" class="answer-input-container">
+                                <input type="text" id="collectiefInput" placeholder="Type een item...">
+                                <button id="collectiefSubmit" class="btn-primary">Bevestig</button>
+                            </div>
+                        </div>
+                        <button class="btn-back">← Terug naar Rondes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoreboard View (for display screen) -->
+        <div id="scoreboardView" class="view">
+            <div class="scoreboard-container">
+                <h1 class="main-title">DE SLIMSTE<br><span class="highlight">MEIJERS</span></h1>
+                <div class="scoreboard-header">
+                    <h2>Scorebord</h2>
+                </div>
+                <div id="scoreboardContent" class="scoreboard-grid"></div>
+            </div>
+        </div>
+
+        <!-- Admin View -->
+        <div id="adminView" class="view">
+            <div class="admin-container">
+                <h1>Admin Panel</h1>
+                <div class="admin-tabs">
+                    <button class="admin-tab active" data-tab="questions">Vragen Beheren</button>
+                    <button class="admin-tab" data-tab="game">Spel Beheren</button>
+                </div>
+                
+                <div id="questionsTab" class="admin-content active">
+                    <h2>Vragen Toevoegen</h2>
+                    <form id="addQuestionForm">
+                        <div class="form-group">
+                            <label for="questionType">Ronde Type</label>
+                            <select id="questionType" required>
+                                <option value="open-deur">De Open Deur</option>
+                                <option value="puzzel">De Puzzel</option>
+                                <option value="galerij">De Galerij</option>
+                                <option value="collectief-geheugen">Het Collectief Geheugen</option>
+                            </select>
+                        </div>
+                        
+                        <div id="questionFields"></div>
+                        
+                        <button type="submit" class="btn-primary">Vraag Toevoegen</button>
+                    </form>
+                    
+                    <div id="questionsList" class="questions-list"></div>
+                </div>
+                
+                <div id="gameTab" class="admin-content">
+                    <h2>Actieve Teams</h2>
+                    <div id="activeTeams"></div>
+                    
+                    <h2>Spel Reset</h2>
+                    <button id="resetGameBtn" class="btn-danger">Reset Alle Scores</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav id="mainNav">
+        <button data-view="loginView">Home</button>
+        <button data-view="gameView">Spelen</button>
+        <button data-view="scoreboardView">Scorebord</button>
+        <button data-view="adminView">Admin</button>
+    </nav>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="js/firebase-config.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
