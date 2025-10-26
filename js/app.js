@@ -1863,7 +1863,7 @@ function loadScoreboard() {
                     scoreboardPinDisplay.classList.add('hidden');
                     console.log('PIN hidden - game started');
                 } else {
-                    // Show PIN during lobby phase
+                    // Show PIN during lobby phase (before game starts)
                     scoreboardPinDisplay.classList.remove('hidden');
                     console.log('PIN visible - lobby phase');
                 }
@@ -1871,18 +1871,21 @@ function loadScoreboard() {
             
             const lobbySection = document.getElementById('lobbySection');
             const scoreboardSection = document.getElementById('scoreboardSection');
+            const startGameSection = document.getElementById('startGameSection');
             
             if (gameStarted) {
-                // Show scoreboard, hide lobby
+                // Show scoreboard, hide lobby and start button
                 if (lobbySection) lobbySection.classList.add('hidden');
                 if (scoreboardSection) scoreboardSection.classList.remove('hidden');
+                if (startGameSection) startGameSection.classList.add('hidden');
                 
                 // Load actual scoreboard
                 loadActualScoreboard();
             } else {
-                // Show lobby, hide scoreboard
+                // Show lobby and start button, hide scoreboard
                 if (lobbySection) lobbySection.classList.remove('hidden');
                 if (scoreboardSection) scoreboardSection.classList.add('hidden');
+                if (startGameSection) startGameSection.classList.remove('hidden');
                 
                 // Load lobby teams list
                 loadLobbyTeams();
