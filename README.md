@@ -1,4 +1,4 @@
-# De Slimste Meijers 🧠
+# De Slimste Familie 🧠
 
 Een interactieve quiz website gebaseerd op het populaire TV-programma "De Slimste Mens", speciaal gemaakt voor de Meijers familie!
 

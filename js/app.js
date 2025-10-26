@@ -81,19 +81,21 @@ const GAME_MODES = {
 };
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Show loading indicator
     showLoadingMessage();
     
     initializeNavigation();
-    initializeSetupView();
+    initializeAdminLogin();
+    initializeAdminPanel();
     initializeTeamForm();
     initializeRoundSelection();
-    initializeAdminPanel();
     loadScoreboard();
     initializeDefaultQuestions();
-    checkGameMode();
     listenToGameMode();
+    
+    // Check if settings are configured
+    await checkIfConfigured();
     
     // Check if team data exists in sessionStorage
     const savedTeam = sessionStorage.getItem('currentTeam');
@@ -166,127 +168,307 @@ function showView(viewId) {
     }
 }
 
-// Setup View - Game Mode Selection
-function initializeSetupView() {
-    const adminPasswordInput = document.getElementById('adminPassword');
-    const familyNameInput = document.getElementById('familyNameInput');
-    const modeButtons = document.querySelectorAll('.game-mode-btn');
-    const confirmButton = document.getElementById('confirmGameMode');
-    let selectedMode = null;
+// Admin Login
+function initializeAdminLogin() {
+    const adminLoginForm = document.getElementById('adminLoginForm');
     
-    // Update title preview as user types
-    familyNameInput.addEventListener('input', () => {
-        const value = familyNameInput.value.trim().toUpperCase() || '...';
-        document.getElementById('setupFamilyTitle').textContent = value;
-    });
+    if (!adminLoginForm) return;
     
-    modeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove selected from all buttons
-            modeButtons.forEach(btn => btn.classList.remove('selected'));
-            // Add selected to clicked button
-            button.classList.add('selected');
-            selectedMode = button.getAttribute('data-mode');
-            
-            // Enable confirm button only if all fields are filled
-            confirmButton.disabled = !(selectedMode && familyNameInput.value.trim() && adminPasswordInput.value.trim());
-        });
-    });
-    
-    // Check all fields for enabling button
-    const checkFields = () => {
-        confirmButton.disabled = !(selectedMode && familyNameInput.value.trim() && adminPasswordInput.value.trim());
-    };
-    
-    familyNameInput.addEventListener('input', checkFields);
-    adminPasswordInput.addEventListener('input', checkFields);
-    
-    confirmButton.addEventListener('click', async () => {
-        if (!selectedMode || !familyNameInput.value.trim() || !adminPasswordInput.value.trim()) return;
+    adminLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        const adminPasswordValue = adminPasswordInput.value.trim();
-        const familyNameValue = familyNameInput.value.trim();
+        const password = document.getElementById('adminLoginPassword').value.trim();
         
         try {
-            // Check if admin password already exists
-            const existingPasswordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+            // Check if admin password exists, if not set default to 0000
+            const passwordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+            const storedPassword = passwordSnapshot.exists() ? passwordSnapshot.val() : '0000';
             
-            if (existingPasswordSnapshot.exists()) {
-                // Validate against existing password
-                const storedPassword = existingPasswordSnapshot.val();
-                if (storedPassword !== adminPasswordValue) {
-                    showNotification('❌ Verkeerd admin wachtwoord!', 'error');
-                    return;
-                }
-            } else {
-                // First time setup - save the password
-                await set(ref(db, 'gameState/adminPassword'), adminPasswordValue);
+            // First time setup - save default password if not exists
+            if (!passwordSnapshot.exists()) {
+                await set(ref(db, 'gameState/adminPassword'), '0000');
             }
             
-            // Save game mode and family name to Firebase
-            await set(ref(db, 'gameState/mode'), selectedMode);
-            await set(ref(db, 'gameState/familyName'), familyNameValue);
-            await set(ref(db, 'gameState/gameStarted'), false);
-            await set(ref(db, 'gameState/readyTeams'), {});
-            
-            // Update local state
-            familyName = familyNameValue;
-            
-            // Show login view
-            showView('loginView');
-            updateFamilyNameInUI();
-            
-            // Show success message
-            showNotification(`✅ Spelmodus ingesteld: ${GAME_MODES[selectedMode].name}`, 'success');
+            if (password === storedPassword) {
+                showNotification('✅ Admin login geslaagd!', 'success');
+                showView('adminView');
+                loadAdminSettings();
+            } else {
+                showNotification('❌ Verkeerd wachtwoord!', 'error');
+            }
         } catch (error) {
-            console.error('Error setting game mode:', error);
-            showNotification('❌ Fout bij instellen spelmodus. Probeer opnieuw.', 'error');
+            console.error('Error during admin login:', error);
+            showNotification('❌ Login fout. Probeer opnieuw.', 'error');
         }
     });
 }
 
-// Check if game mode is already set
-async function checkGameMode() {
+// Check if game is configured
+async function checkIfConfigured() {
     try {
-        const modeSnapshot = await get(ref(db, 'gameState/mode'));
         const familyNameSnapshot = await get(ref(db, 'gameState/familyName'));
+        const modeSnapshot = await get(ref(db, 'gameState/mode'));
         
-        if (modeSnapshot.exists() && familyNameSnapshot.exists()) {
-            gameMode = modeSnapshot.val();
+        if (familyNameSnapshot.exists() && modeSnapshot.exists()) {
+            // Game is configured, show login view
             familyName = familyNameSnapshot.val();
-            
-            // Check if game has started
-            const gameStartedSnapshot = await get(ref(db, 'gameState/gameStarted'));
-            const gameStarted = gameStartedSnapshot.val();
-            
-            if (!gameStarted) {
-                // Game not started yet, show login view
-                showView('loginView');
-                displayGameModeInfo();
-                updateFamilyNameInUI();
-            } else {
-                // Game already started, allow direct login
-                showView('loginView');
-                displayGameModeInfo();
-                updateFamilyNameInUI();
-            }
+            gameMode = modeSnapshot.val();
+            updateFamilyNameInUI();
+            displayGameModeInfo();
+            showView('loginView');
         } else {
-            // No mode or family name set, show setup view
-            showView('setupView');
+            // Not configured, show message
+            const loginView = document.getElementById('loginView');
+            if (loginView) {
+                loginView.innerHTML = `
+                    <div class="container">
+                        <div class="logo-container">
+                            <h1 class="main-title">DE SLIMSTE<br><span class="highlight">...</span></h1>
+                        </div>
+                        <div class="login-box">
+                            <h2>⚙️ Configuratie Vereist</h2>
+                            <p style="font-size: 1.2rem; margin: 20px 0;">
+                                De admin moet eerst het spel configureren voordat teams zich kunnen aanmelden.
+                            </p>
+                            <p style="opacity: 0.8;">
+                                Ga naar het Admin menu om de familienaam en spelmodus in te stellen.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
         }
     } catch (error) {
-        console.error('Error checking game mode:', error);
-        showView('setupView');
+        console.error('Error checking configuration:', error);
+    }
+}
+
+// Load admin settings into the admin panel
+async function loadAdminSettings() {
+    try {
+        const familyNameSnapshot = await get(ref(db, 'gameState/familyName'));
+        const modeSnapshot = await get(ref(db, 'gameState/mode'));
+        const pinCodeSnapshot = await get(ref(db, 'gameState/pinCode'));
+        
+        const familyNameInput = document.getElementById('adminFamilyNameInput');
+        if (familyNameSnapshot.exists() && familyNameInput) {
+            familyNameInput.value = familyNameSnapshot.val();
+        }
+        
+        if (modeSnapshot.exists()) {
+            const mode = modeSnapshot.val();
+            const modeButtons = document.querySelectorAll('#settingsTab .game-mode-btn');
+            modeButtons.forEach(btn => {
+                if (btn.getAttribute('data-mode') === mode) {
+                    btn.classList.add('selected');
+                }
+            });
+        }
+        
+        // Show PIN code if it exists
+        if (pinCodeSnapshot.exists()) {
+            const pinCode = pinCodeSnapshot.val();
+            const pinCodeDisplay = document.getElementById('pinCodeDisplay');
+            const pinCodeValue = document.getElementById('pinCodeValue');
+            if (pinCodeDisplay && pinCodeValue) {
+                pinCodeValue.textContent = pinCode;
+                pinCodeDisplay.classList.remove('hidden');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading admin settings:', error);
+    }
+}
+
+// Load PIN code in lobby
+async function loadPinCodeInLobby() {
+    try {
+        const pinCodeSnapshot = await get(ref(db, 'gameState/pinCode'));
+        if (pinCodeSnapshot.exists()) {
+            const pinCode = pinCodeSnapshot.val();
+            const lobbyPinCodeValue = document.getElementById('lobbyPinCodeValue');
+            if (lobbyPinCodeValue) {
+                lobbyPinCodeValue.textContent = pinCode;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading PIN code in lobby:', error);
+    }
+}
+
+// Save admin settings
+function initializeAdminSettings() {
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const familyNameInput = document.getElementById('adminFamilyNameInput');
+    const modeButtons = document.querySelectorAll('#settingsTab .game-mode-btn');
+    let selectedMode = null;
+    
+    if (!saveSettingsBtn) return;
+    
+    // Mode selection
+    modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            modeButtons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+            selectedMode = button.getAttribute('data-mode');
+        });
+    });
+    
+    // Save settings
+    saveSettingsBtn.addEventListener('click', async () => {
+        const familyNameValue = familyNameInput.value.trim();
+        
+        if (!familyNameValue) {
+            showNotification('⚠️ Familienaam is verplicht!', 'error');
+            return;
+        }
+        
+        if (!selectedMode) {
+            // Check if mode already exists
+            const modeSnapshot = await get(ref(db, 'gameState/mode'));
+            if (modeSnapshot.exists()) {
+                selectedMode = modeSnapshot.val();
+            } else {
+                showNotification('⚠️ Selecteer een spelmodus!', 'error');
+                return;
+            }
+        }
+        
+        try {
+            // Generate random 4-digit PIN code
+            const pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            await set(ref(db, 'gameState/familyName'), familyNameValue);
+            await set(ref(db, 'gameState/mode'), selectedMode);
+            await set(ref(db, 'gameState/pinCode'), pinCode);
+            await set(ref(db, 'gameState/gameStarted'), false);
+            
+            familyName = familyNameValue;
+            gameMode = selectedMode;
+            
+            // Update PIN code display
+            const pinCodeDisplay = document.getElementById('pinCodeDisplay');
+            const pinCodeValue = document.getElementById('pinCodeValue');
+            if (pinCodeDisplay && pinCodeValue) {
+                pinCodeValue.textContent = pinCode;
+                pinCodeDisplay.classList.remove('hidden');
+            }
+            
+            updateFamilyNameInUI();
+            await checkIfConfigured();
+            
+            showNotification(`✅ Instellingen opgeslagen! PIN Code: ${pinCode}`, 'success');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            showNotification('❌ Fout bij opslaan. Probeer opnieuw.', 'error');
+        }
+    });
+}
+
+// Change admin password
+function initializePasswordChange() {
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    
+    if (!changePasswordBtn) return;
+    
+    changePasswordBtn.addEventListener('click', async () => {
+        const currentPassword = document.getElementById('currentPassword').value.trim();
+        const newPassword = document.getElementById('newPassword').value.trim();
+        const confirmPassword = document.getElementById('confirmPassword').value.trim();
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showNotification('⚠️ Vul alle velden in!', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showNotification('⚠️ Nieuwe wachtwoorden komen niet overeen!', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 4) {
+            showNotification('⚠️ Wachtwoord moet minimaal 4 tekens zijn!', 'error');
+            return;
+        }
+        
+        try {
+            const passwordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+            const storedPassword = passwordSnapshot.exists() ? passwordSnapshot.val() : '0000';
+            
+            if (currentPassword !== storedPassword) {
+                showNotification('❌ Huidig wachtwoord is onjuist!', 'error');
+                return;
+            }
+            
+            await set(ref(db, 'gameState/adminPassword'), newPassword);
+            
+            // Clear fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            
+            showNotification('✅ Wachtwoord succesvol gewijzigd!', 'success');
+        } catch (error) {
+            console.error('Error changing password:', error);
+            showNotification('❌ Fout bij wijzigen wachtwoord.', 'error');
+        }
+    });
+}
+
+// Start game manually from admin
+function initializeGameStart() {
+    const startGameBtn = document.getElementById('startGameBtn');
+    
+    if (!startGameBtn) return;
+    
+    startGameBtn.addEventListener('click', async () => {
+        try {
+            await set(ref(db, 'gameState/gameStarted'), true);
+            showNotification('🚀 Het spel is gestart voor alle teams!', 'success');
+            
+            // Notify all teams
+            setTimeout(() => {
+                showView('scoreboardView');
+            }, 2000);
+        } catch (error) {
+            console.error('Error starting game:', error);
+            showNotification('❌ Fout bij starten van het spel.', 'error');
+        }
+    });
+}
+
+// Listen to game mode changes
+// Listen to game mode changes (kept for real-time updates)
+async function listenToGameMode() {
+    try {
+        // Listen to family name changes
+        const familyNameRef = ref(db, 'gameState/familyName');
+        onValue(familyNameRef, (snapshot) => {
+            if (snapshot.exists()) {
+                familyName = snapshot.val();
+                updateFamilyNameInUI();
+            }
+        });
+        
+        // Listen to game mode changes
+        const modeRef = ref(db, 'gameState/mode');
+        onValue(modeRef, (snapshot) => {
+            if (snapshot.exists()) {
+                gameMode = snapshot.val();
+                displayGameModeInfo();
+            }
+        });
+    } catch (error) {
+        console.error('Error listening to game mode:', error);
     }
 }
 
 // Update family name in all UI elements
 function updateFamilyNameInUI() {
-    const displayName = familyName.toUpperCase() || 'MEIJERS';
+    const displayName = familyName.toUpperCase() || '...';
     
     // Update all title elements
     const titleElements = [
-        'setupFamilyTitle',
         'loginFamilyTitle',
         'lobbyFamilyTitle',
         'scoreboardFamilyTitle'
@@ -300,13 +482,13 @@ function updateFamilyNameInUI() {
     });
     
     // Update page title
-    document.title = `De Slimste ${familyName || 'Meijers'}`;
+    document.title = `De Slimste ${familyName || '...'}`;
 }
 
 // Display game mode info in login view
 function displayGameModeInfo() {
     const gameModeDisplay = document.getElementById('gameModeDisplay');
-    if (gameMode && GAME_MODES[gameMode]) {
+    if (gameMode && GAME_MODES[gameMode] && gameModeDisplay) {
         const mode = GAME_MODES[gameMode];
         gameModeDisplay.innerHTML = `
             <span style="font-size: 1.5rem;">${mode.icon}</span>
@@ -371,10 +553,35 @@ function initializeTeamForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const pinCodeInput = document.getElementById('pinCodeInput').value.trim();
         const teamName = document.getElementById('teamName').value.trim();
         
+        if (!pinCodeInput || pinCodeInput.length !== 4) {
+            showNotification('⚠️ Vul een geldige 4-cijferige PIN code in!', 'error');
+            return;
+        }
+        
         if (!teamName) {
-            alert('Teamnaam is verplicht!');
+            showNotification('⚠️ Teamnaam is verplicht!', 'error');
+            return;
+        }
+        
+        // Validate PIN code
+        try {
+            const pinCodeSnapshot = await get(ref(db, 'gameState/pinCode'));
+            if (!pinCodeSnapshot.exists()) {
+                showNotification('❌ Spel is nog niet geconfigureerd. Vraag de admin om het spel in te stellen.', 'error');
+                return;
+            }
+            
+            const correctPinCode = pinCodeSnapshot.val();
+            if (pinCodeInput !== correctPinCode) {
+                showNotification('❌ Onjuiste PIN code! Vraag de juiste code aan de spelleider.', 'error');
+                return;
+            }
+        } catch (error) {
+            console.error('Error validating PIN code:', error);
+            showNotification('❌ Fout bij valideren van PIN code.', 'error');
             return;
         }
         
@@ -409,6 +616,7 @@ function initializeTeamForm() {
             // Go to lobby instead of game view
             showView('lobbyView');
             initializeLobby();
+            loadPinCodeInLobby();
         } catch (error) {
             console.error('Error adding team:', error);
             showDatabaseError(error);
@@ -473,6 +681,9 @@ function updateCompletedRoundsUI() {
 // Lobby functionality
 function initializeLobby() {
     const readyBtn = document.getElementById('readyBtn');
+    
+    // Load PIN code in lobby
+    loadPinCodeInLobby();
     
     // Listen to all teams
     listenToTeams();
@@ -558,30 +769,35 @@ function checkAllTeamsReady(teams) {
         return;
     }
     
+    const readyCount = teams.filter(t => t.ready).length;
     const allReady = teams.every(team => team.ready);
     
     if (allReady && teams.length > 0) {
-        waitingMessage.textContent = '🎉 Alle teams zijn klaar! Het spel start over 3 seconden...';
+        waitingMessage.textContent = '🎉 Alle teams zijn klaar! Wacht op de admin om het spel te starten...';
         waitingMessage.classList.add('all-ready');
-        
-        // Start game after 3 seconds
-        setTimeout(() => {
-            startGame();
-        }, 3000);
     } else {
-        const readyCount = teams.filter(t => t.ready).length;
         waitingMessage.textContent = `Wachten op andere teams... (${readyCount}/${teams.length} klaar)`;
         waitingMessage.classList.remove('all-ready');
     }
 }
 
+// Listen to game started status
+onValue(ref(db, 'gameState/gameStarted'), (snapshot) => {
+    if (snapshot.exists() && snapshot.val() === true) {
+        // Game has been started by admin
+        if (currentTeam && document.getElementById('lobbyView').classList.contains('active')) {
+            showView('gameView');
+            showNotification('🎮 Het spel is begonnen! Veel succes!', 'success');
+        }
+    }
+});
+
 async function startGame() {
+    // This function is now only called by admin from initializeGameStart()
     try {
         // Mark game as started
         await set(ref(db, 'gameState/gameStarted'), true);
         
-        // Show game view for all teams
-        showView('gameView');
         showNotification('🎮 Het spel is begonnen! Veel succes!', 'success');
     } catch (error) {
         console.error('Error starting game:', error);
@@ -598,7 +814,7 @@ function initializeRoundSelection() {
             
             // Check if round is locked
             if (button.classList.contains('locked')) {
-                alert('Je moet eerst de vorige rondes voltooien!');
+                showNotification('🔒 Je moet eerst de vorige rondes voltooien!', 'error');
                 return;
             }
             
@@ -651,6 +867,9 @@ function returnToRoundSelection() {
         content.classList.remove('active');
     });
     document.getElementById('roundSelection').classList.add('active');
+    
+    // Update UI to reflect completed rounds
+    updateCompletedRoundsUI();
 }
 
 async function loadQuestionsForRound(roundType) {
@@ -736,7 +955,7 @@ function initializeOpenDeur() {
     const hintsContainer = document.getElementById('openDeurHints');
     hintsContainer.innerHTML = '';
     
-    // Show hints one by one
+    // Show hints one by one (8 seconds between hints)
     let hintIndex = 0;
     const showNextHint = () => {
         if (hintIndex < question.hints.length) {
@@ -747,7 +966,7 @@ function initializeOpenDeur() {
             hintIndex++;
             
             if (hintIndex < question.hints.length) {
-                const timeoutId = setTimeout(showNextHint, 3000);
+                const timeoutId = setTimeout(showNextHint, 8000);
                 hintTimeouts.push(timeoutId);
             }
         }
@@ -1040,25 +1259,29 @@ function initializeWatWeetU() {
         if (correctCount > 0) {
             updateTeamSeconds(points);
             setTimeout(() => {
-                alert(`Tijd om! Je hebt ${correctCount} feiten gevonden en ${points} seconden verdiend!`);
-                currentQuestionIndex++;
-                
-                if (currentQuestionIndex < currentQuestions.length) {
-                    initializeWatWeetU();
-                } else {
-                    completeRound();
-                }
+                showNotification(`⏱️ Tijd om! Je hebt ${correctCount} feiten gevonden en ${points} seconden verdiend!`, 'success');
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    
+                    if (currentQuestionIndex < currentQuestions.length) {
+                        initializeWatWeetU();
+                    } else {
+                        completeRound();
+                    }
+                }, 2000);
             }, 2000);
         } else {
             setTimeout(() => {
-                alert('Tijd om! Geen feiten gevonden.');
-                currentQuestionIndex++;
-                
-                if (currentQuestionIndex < currentQuestions.length) {
-                    initializeWatWeetU();
-                } else {
-                    completeRound();
-                }
+                showNotification('⏱️ Tijd om! Geen feiten gevonden.', 'error');
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    
+                    if (currentQuestionIndex < currentQuestions.length) {
+                        initializeWatWeetU();
+                    } else {
+                        completeRound();
+                    }
+                }, 2000);
             }, 2000);
         }
     };
@@ -1126,16 +1349,18 @@ function initializeWatWeetU() {
                 input.disabled = true;
                 submitBtn.disabled = true;
                 setTimeout(() => {
-                    alert(`Perfect! Alle ${correctCount} feiten gevonden!`);
+                    showNotification(`🎉 Perfect! Alle ${correctCount} feiten gevonden!`, 'success');
                     const bonusPoints = correctCount * 3 + 10; // Bonus for completing
                     updateTeamSeconds(bonusPoints);
                     
-                    currentQuestionIndex++;
-                    if (currentQuestionIndex < currentQuestions.length) {
-                        initializeWatWeetU();
-                    } else {
-                        completeRound();
-                    }
+                    setTimeout(() => {
+                        currentQuestionIndex++;
+                        if (currentQuestionIndex < currentQuestions.length) {
+                            initializeWatWeetU();
+                        } else {
+                            completeRound();
+                        }
+                    }, 2000);
                 }, 1500);
             }
         } else {
@@ -1183,7 +1408,7 @@ function initializeCollectiefGeheugen() {
         const correctAnswers = question.answers.map(a => a.toLowerCase());
         
         if (foundItems.includes(answer)) {
-            alert('Dit item is al gevonden!');
+            showNotification('⚠️ Dit item is al gevonden!', 'error');
             input.value = '';
             return;
         }
@@ -1325,9 +1550,13 @@ async function completeRound() {
         }
     }
     
-    alert(`Ronde voltooid! Je hebt nu ${teamSeconds} seconden.`);
-    returnToRoundSelection();
+    // Update UI BEFORE showing notification and returning
     updateCompletedRoundsUI();
+    
+    showNotification(`✅ Ronde voltooid! Je hebt nu ${teamSeconds} seconden.`, 'success');
+    
+    // Return to round selection
+    returnToRoundSelection();
     
     // Trigger scoreboard refresh
     loadScoreboard();
@@ -1503,7 +1732,7 @@ function initializeScoreboardMusic() {
         if (music.paused) {
             music.play().catch(err => {
                 console.log('Autoplay prevented:', err);
-                alert('Klik nogmaals om de muziek te starten');
+                showNotification('🎵 Klik nogmaals om de muziek te starten', 'info');
             });
             toggleBtn.classList.add('playing');
             toggleBtn.querySelector('.music-text').textContent = 'Pauzeer';
@@ -1545,6 +1774,11 @@ function stopScoreboardMusic() {
 
 // Admin Panel
 function initializeAdminPanel() {
+    // Initialize all admin functions
+    initializeAdminSettings();
+    initializePasswordChange();
+    initializeGameStart();
+    
     // Tab switching
     const adminTabs = document.querySelectorAll('.admin-tab');
     adminTabs.forEach(tab => {
@@ -1558,7 +1792,10 @@ function initializeAdminPanel() {
                 content.classList.remove('active');
             });
             
-            if (tabName === 'questions') {
+            if (tabName === 'settings') {
+                document.getElementById('settingsTab').classList.add('active');
+                loadAdminSettings();
+            } else if (tabName === 'questions') {
                 document.getElementById('questionsTab').classList.add('active');
                 loadQuestionsList();
             } else if (tabName === 'game') {
@@ -1570,27 +1807,33 @@ function initializeAdminPanel() {
     
     // Question type selection
     const questionType = document.getElementById('questionType');
-    questionType.addEventListener('change', () => {
-        renderQuestionFields(questionType.value);
-    });
-    
-    // Initial render
-    renderQuestionFields('open-deur');
+    if (questionType) {
+        questionType.addEventListener('change', () => {
+            renderQuestionFields(questionType.value);
+        });
+        
+        // Initial render
+        renderQuestionFields('open-deur');
+    }
     
     // Add question form
     const addQuestionForm = document.getElementById('addQuestionForm');
-    addQuestionForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await addQuestion();
-    });
+    if (addQuestionForm) {
+        addQuestionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await addQuestion();
+        });
+    }
     
     // Reset game
     const resetGameBtn = document.getElementById('resetGameBtn');
-    resetGameBtn.addEventListener('click', async () => {
-        if (confirm('Weet je zeker dat je alle scores wilt resetten?')) {
-            await resetGame();
-        }
-    });
+    if (resetGameBtn) {
+        resetGameBtn.addEventListener('click', async () => {
+            if (confirm('Weet je zeker dat je alle scores wilt resetten?')) {
+                await resetGame();
+            }
+        });
+    }
 }
 
 function renderQuestionFields(type) {
@@ -1694,7 +1937,7 @@ async function addQuestion() {
                 const clues3 = document.getElementById('questionClues3').value.split('\n').filter(c => c.trim());
                 
                 if (clues1.length !== 4 || clues2.length !== 4 || clues3.length !== 4) {
-                    alert('Elke groep moet precies 4 hints hebben!');
+                    showNotification('⚠️ Elke groep moet precies 4 hints hebben!', 'error');
                     return;
                 }
                 
@@ -1725,13 +1968,13 @@ async function addQuestion() {
         const newQuestionRef = push(questionsRef);
         await set(newQuestionRef, questionData);
         
-        alert('Vraag toegevoegd!');
+        showNotification('✅ Vraag toegevoegd!', 'success');
         document.getElementById('addQuestionForm').reset();
         renderQuestionFields(type);
         loadQuestionsList();
     } catch (error) {
         console.error('Error adding question:', error);
-        alert('Er ging iets mis bij het toevoegen van de vraag.');
+        showNotification('❌ Er ging iets mis bij het toevoegen van de vraag.', 'error');
     }
 }
 
@@ -1793,9 +2036,10 @@ window.deleteQuestion = async function(questionId) {
             const questionRef = ref(db, `questions/${questionId}`);
             await remove(questionRef);
             loadQuestionsList();
+            showNotification('✅ Vraag verwijderd', 'success');
         } catch (error) {
             console.error('Error deleting question:', error);
-            alert('Er ging iets mis bij het verwijderen.');
+            showNotification('❌ Er ging iets mis bij het verwijderen.', 'error');
         }
     }
 };
@@ -1840,9 +2084,10 @@ window.deleteTeam = async function(teamId) {
             await remove(teamRef);
             loadActiveTeams();
             loadScoreboard();
+            showNotification('✅ Team verwijderd', 'success');
         } catch (error) {
             console.error('Error deleting team:', error);
-            alert('Er ging iets mis bij het verwijderen.');
+            showNotification('❌ Er ging iets mis bij het verwijderen.', 'error');
         }
     }
 };
@@ -1856,13 +2101,13 @@ async function resetGame() {
         sessionStorage.removeItem('currentTeam');
         currentTeam = null;
         
-        alert('Alle teams en scores zijn gereset!');
+        showNotification('✅ Alle teams en scores zijn gereset!', 'success');
         loadActiveTeams();
         loadScoreboard();
         showView('loginView');
     } catch (error) {
         console.error('Error resetting game:', error);
-        alert('Er ging iets mis bij het resetten.');
+        showNotification('❌ Er ging iets mis bij het resetten.', 'error');
     }
 }
 
@@ -1938,8 +2183,25 @@ function showDatabaseError(error) {
 }
 
 function showNotification(message, type = 'info') {
+    // Remove any existing notifications first
+    const existingNotifications = document.querySelectorAll('.app-notification');
+    existingNotifications.forEach(notif => notif.remove());
+    
     const notificationDiv = document.createElement('div');
-    const bgColor = type === 'success' ? '#00D084' : type === 'error' ? '#FF4757' : '#004E89';
+    notificationDiv.className = 'app-notification';
+    
+    // Use authentic Slimste Mens colors
+    let bgColor, borderColor;
+    if (type === 'success') {
+        bgColor = 'linear-gradient(135deg, #00D084 0%, #00A86B 100%)';
+        borderColor = '#00D084';
+    } else if (type === 'error') {
+        bgColor = 'linear-gradient(135deg, #FF4757 0%, #FF3838 100%)';
+        borderColor = '#FF4757';
+    } else {
+        bgColor = 'linear-gradient(135deg, #FF6600 0%, #FF8C00 100%)';
+        borderColor = '#FF6600';
+    }
     
     notificationDiv.style.cssText = `
         position: fixed;
@@ -1948,22 +2210,26 @@ function showNotification(message, type = 'info') {
         transform: translateX(-50%);
         background: ${bgColor};
         color: white;
-        padding: 20px 30px;
-        border-radius: 10px;
-        font-size: 1.1rem;
+        padding: 20px 40px;
+        border-radius: 15px;
+        font-size: 1.2rem;
+        font-weight: 600;
         text-align: center;
         z-index: 10001;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 0 3px ${borderColor}33;
         max-width: 90%;
-        animation: slideDown 0.5s ease-out;
+        min-width: 300px;
+        animation: slideDown 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
     `;
     notificationDiv.textContent = message;
     document.body.appendChild(notificationDiv);
     
     // Auto remove after 4 seconds
     setTimeout(() => {
-        notificationDiv.style.transition = 'opacity 0.5s ease';
+        notificationDiv.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
         notificationDiv.style.opacity = '0';
+        notificationDiv.style.transform = 'translateX(-50%) translateY(-30px)';
         setTimeout(() => notificationDiv.remove(), 500);
     }, 4000);
 }

@@ -9,70 +9,34 @@
 </head>
 <body>
     <div id="app">
-        <!-- Setup View (Admin only - Game Mode Selection) -->
-        <div id="setupView" class="view active">
+        <!-- Admin Login View -->
+        <div id="adminLoginView" class="view">
             <div class="container">
                 <div class="logo-container">
-                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="setupFamilyTitle">...</span></h1>
+                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight">ADMIN</span></h1>
                 </div>
                 
                 <div class="login-box">
-                    <h2>🎮 Spel Configuratie</h2>
-                    <p class="setup-subtitle">Alleen voor admins - vul het wachtwoord in</p>
+                    <h2>🔐 Admin Login</h2>
+                    <p class="setup-subtitle">Vul het admin wachtwoord in</p>
                     
-                    <div class="form-group">
-                        <label for="adminPassword">Admin Wachtwoord</label>
-                        <input type="password" id="adminPassword" required placeholder="Vul admin wachtwoord in">
-                        <small class="form-hint">
-                            Stel een wachtwoord in om deze configuratie te beschermen
-                        </small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="familyNameInput">Familienaam</label>
-                        <input type="text" id="familyNameInput" required placeholder="bijv. Jansen, De Vries, etc." maxlength="20">
-                        <small class="form-hint">
-                            Dit wordt "De Slimste [FAMILIENAAM]"
-                        </small>
-                    </div>
-                    
-                    <div class="game-mode-selection">
-                        <button class="game-mode-btn" data-mode="test">
-                            <span class="mode-icon">⚡</span>
-                            <span class="mode-title">Test Modus</span>
-                            <span class="mode-duration">~5 minuten</span>
-                            <span class="mode-description">Minimale vragen om snel te testen</span>
-                        </button>
+                    <form id="adminLoginForm">
+                        <div class="form-group">
+                            <label for="adminLoginPassword">Wachtwoord</label>
+                            <input type="password" id="adminLoginPassword" required placeholder="Standaard: 0000">
+                            <small class="form-hint">
+                                Standaard wachtwoord is 0000
+                            </small>
+                        </div>
                         
-                        <button class="game-mode-btn" data-mode="short">
-                            <span class="mode-icon">⏱️</span>
-                            <span class="mode-title">Kort Spel</span>
-                            <span class="mode-duration">~30 minuten</span>
-                            <span class="mode-description">Perfect voor een snelle quiz</span>
-                        </button>
-                        
-                        <button class="game-mode-btn" data-mode="normal">
-                            <span class="mode-icon">🎯</span>
-                            <span class="mode-title">Normaal Spel</span>
-                            <span class="mode-duration">~60 minuten</span>
-                            <span class="mode-description">Volledige ervaring (aanbevolen)</span>
-                        </button>
-                        
-                        <button class="game-mode-btn" data-mode="long">
-                            <span class="mode-icon">🏆</span>
-                            <span class="mode-title">Lang Spel</span>
-                            <span class="mode-duration">~90 minuten</span>
-                            <span class="mode-description">Maximale uitdaging</span>
-                        </button>
-                    </div>
-                    
-                    <button id="confirmGameMode" class="btn-primary" disabled>Bevestig en Open voor Teams</button>
+                        <button type="submit" class="btn-primary">Inloggen</button>
+                    </form>
                 </div>
             </div>
         </div>
 
         <!-- Login/Team Registration View -->
-        <div id="loginView" class="view">
+        <div id="loginView" class="view active">
             <div class="container">
                 <div class="logo-container">
                     <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="loginFamilyTitle">...</span></h1>
@@ -82,6 +46,14 @@
                     <h2>Team Aanmelden</h2>
                     <div id="gameModeDisplay" class="game-mode-display"></div>
                     <form id="teamForm">
+                        <div class="form-group">
+                            <label for="pinCodeInput">PIN Code (4 cijfers)</label>
+                            <input type="text" id="pinCodeInput" required placeholder="Vul de 4-cijferige code in" maxlength="4" pattern="[0-9]{4}">
+                            <small class="form-hint">
+                                Vraag de PIN code aan de spelleider
+                            </small>
+                        </div>
+                        
                         <div class="form-group">
                             <label for="teamName">Teamnaam (Gezinsnaam)</label>
                             <input type="text" id="teamName" required placeholder="bijv. Familie Jansen">
@@ -113,6 +85,13 @@
                 <div class="lobby-box">
                     <h2>🎮 Wachtkamer</h2>
                     <p class="lobby-subtitle">Wacht tot alle teams klaar zijn om te beginnen</p>
+                    
+                    <div class="pin-code-display">
+                        <p class="pin-hint">Spel PIN Code:</p>
+                        <div class="pin-code-value">
+                            <span id="lobbyPinCodeValue">----</span>
+                        </div>
+                    </div>
                     
                     <div id="teamsList" class="teams-list"></div>
                     
@@ -286,11 +265,82 @@
             <div class="admin-container">
                 <h1>Admin Panel</h1>
                 <div class="admin-tabs">
-                    <button class="admin-tab active" data-tab="questions">Vragen Beheren</button>
+                    <button class="admin-tab active" data-tab="settings">Instellingen</button>
+                    <button class="admin-tab" data-tab="questions">Vragen Beheren</button>
                     <button class="admin-tab" data-tab="game">Spel Beheren</button>
                 </div>
                 
-                <div id="questionsTab" class="admin-content active">
+                <div id="settingsTab" class="admin-content active">
+                    <h2>⚙️ Spel Configuratie</h2>
+                    
+                    <div id="pinCodeDisplay" class="pin-code-display hidden">
+                        <h3>🔢 Spel PIN Code</h3>
+                        <div class="pin-code-value">
+                            <span id="pinCodeValue">----</span>
+                        </div>
+                        <p class="pin-hint">Teams moeten deze code invoeren om deel te nemen</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="adminFamilyNameInput">Familienaam</label>
+                        <input type="text" id="adminFamilyNameInput" placeholder="bijv. Jansen, De Vries, etc." maxlength="20">
+                        <small class="form-hint">
+                            Dit wordt "De Slimste [FAMILIENAAM]"
+                        </small>
+                    </div>
+                    
+                    <div class="game-mode-selection">
+                        <h3>Kies Spelmodus</h3>
+                        <button class="game-mode-btn" data-mode="test">
+                            <span class="mode-icon">⚡</span>
+                            <span class="mode-title">Test Modus</span>
+                            <span class="mode-duration">~5 minuten</span>
+                            <span class="mode-description">Minimale vragen om snel te testen</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="short">
+                            <span class="mode-icon">⏱️</span>
+                            <span class="mode-title">Kort Spel</span>
+                            <span class="mode-duration">~30 minuten</span>
+                            <span class="mode-description">Perfect voor een snelle quiz</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="normal">
+                            <span class="mode-icon">🎯</span>
+                            <span class="mode-title">Normaal Spel</span>
+                            <span class="mode-duration">~60 minuten</span>
+                            <span class="mode-description">Volledige ervaring (aanbevolen)</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="long">
+                            <span class="mode-icon">🏆</span>
+                            <span class="mode-title">Lang Spel</span>
+                            <span class="mode-duration">~90 minuten</span>
+                            <span class="mode-description">Maximale uitdaging</span>
+                        </button>
+                    </div>
+                    
+                    <button id="saveSettingsBtn" class="btn-primary">💾 Instellingen Opslaan</button>
+                    
+                    <hr>
+                    
+                    <h2>🔐 Wachtwoord Wijzigen</h2>
+                    <div class="form-group">
+                        <label for="currentPassword">Huidig Wachtwoord</label>
+                        <input type="password" id="currentPassword" placeholder="Vul huidig wachtwoord in">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nieuw Wachtwoord</label>
+                        <input type="password" id="newPassword" placeholder="Vul nieuw wachtwoord in">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Bevestig Nieuw Wachtwoord</label>
+                        <input type="password" id="confirmPassword" placeholder="Bevestig nieuw wachtwoord">
+                    </div>
+                    <button id="changePasswordBtn" class="btn-secondary">🔑 Wachtwoord Wijzigen</button>
+                </div>
+                
+                <div id="questionsTab" class="admin-content">
                     <h2>Vragen Toevoegen</h2>
                     <form id="addQuestionForm">
                         <div class="form-group">
@@ -313,10 +363,18 @@
                 </div>
                 
                 <div id="gameTab" class="admin-content">
-                    <h2>Actieve Teams</h2>
+                    <h2>🎮 Spel Starten</h2>
+                    <p>Start het spel handmatig wanneer alle teams zijn geregistreerd.</p>
+                    <button id="startGameBtn" class="btn-primary btn-large">🚀 Start het Spel voor Alle Teams</button>
+                    
+                    <hr>
+                    
+                    <h2>👥 Actieve Teams</h2>
                     <div id="activeTeams"></div>
                     
-                    <h2>Spel Reset</h2>
+                    <hr>
+                    
+                    <h2>🔄 Spel Reset</h2>
                     <button id="resetGameBtn" class="btn-danger">Reset Alle Scores</button>
                 </div>
             </div>
