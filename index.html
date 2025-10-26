@@ -9,15 +9,70 @@
 </head>
 <body>
     <div id="app">
-        <!-- Login/Team Registration View -->
-        <div id="loginView" class="view active">
+        <!-- Setup View (Admin only - Game Mode Selection) -->
+        <div id="setupView" class="view active">
             <div class="container">
                 <div class="logo-container">
-                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight">MEIJERS</span></h1>
+                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="setupFamilyTitle">...</span></h1>
+                </div>
+                
+                <div class="login-box">
+                    <h2>🎮 Spel Configuratie</h2>
+                    <p class="setup-subtitle">Stel de familienaam en speelduur in</p>
+                    
+                    <div class="form-group">
+                        <label for="familyNameInput">Familienaam</label>
+                        <input type="text" id="familyNameInput" required placeholder="bijv. Jansen, De Vries, etc." maxlength="20">
+                        <small class="form-hint">
+                            Dit wordt "De Slimste [FAMILIENAAM]"
+                        </small>
+                    </div>
+                    
+                    <div class="game-mode-selection">
+                        <button class="game-mode-btn" data-mode="test">
+                            <span class="mode-icon">⚡</span>
+                            <span class="mode-title">Test Modus</span>
+                            <span class="mode-duration">~5 minuten</span>
+                            <span class="mode-description">Minimale vragen om snel te testen</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="short">
+                            <span class="mode-icon">⏱️</span>
+                            <span class="mode-title">Kort Spel</span>
+                            <span class="mode-duration">~30 minuten</span>
+                            <span class="mode-description">Perfect voor een snelle quiz</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="normal">
+                            <span class="mode-icon">🎯</span>
+                            <span class="mode-title">Normaal Spel</span>
+                            <span class="mode-duration">~60 minuten</span>
+                            <span class="mode-description">Volledige ervaring (aanbevolen)</span>
+                        </button>
+                        
+                        <button class="game-mode-btn" data-mode="long">
+                            <span class="mode-icon">🏆</span>
+                            <span class="mode-title">Lang Spel</span>
+                            <span class="mode-duration">~90 minuten</span>
+                            <span class="mode-description">Maximale uitdaging</span>
+                        </button>
+                    </div>
+                    
+                    <button id="confirmGameMode" class="btn-primary" disabled>Bevestig en Open voor Teams</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login/Team Registration View -->
+        <div id="loginView" class="view">
+            <div class="container">
+                <div class="logo-container">
+                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="loginFamilyTitle">...</span></h1>
                 </div>
                 
                 <div class="login-box">
                     <h2>Team Aanmelden</h2>
+                    <div id="gameModeDisplay" class="game-mode-display"></div>
                     <form id="teamForm">
                         <div class="form-group">
                             <label for="teamName">Teamnaam (Gezinsnaam)</label>
@@ -25,16 +80,42 @@
                         </div>
                         
                         <div class="form-group">
-                            <label>Teamleden (1-4 spelers)</label>
+                            <label>Teamleden (optioneel, 1-4 spelers)</label>
                             <div id="playerInputs">
-                                <input type="text" class="player-input" placeholder="Speler 1" required>
+                                <input type="text" class="player-input" placeholder="Speler 1">
                                 <input type="text" class="player-input" placeholder="Speler 2">
                             </div>
                             <button type="button" id="addPlayerBtn" class="btn-secondary">+ Speler Toevoegen</button>
+                            <small class="form-hint">Laat leeg als je alleen een teamnaam wilt gebruiken</small>
                         </div>
                         
-                        <button type="submit" class="btn-primary">Start het Spel</button>
+                        <button type="submit" class="btn-primary">Aanmelden</button>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lobby View (Waiting for all teams to be ready) -->
+        <div id="lobbyView" class="view">
+            <div class="container">
+                <div class="logo-container">
+                    <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="lobbyFamilyTitle">...</span></h1>
+                </div>
+                
+                <div class="lobby-box">
+                    <h2>🎮 Wachtkamer</h2>
+                    <p class="lobby-subtitle">Wacht tot alle teams klaar zijn om te beginnen</p>
+                    
+                    <div id="teamsList" class="teams-list"></div>
+                    
+                    <div class="ready-section">
+                        <button id="readyBtn" class="btn-ready">✓ Ik ben Klaar!</button>
+                        <p class="ready-hint">Druk op de knop als je klaar bent om te beginnen</p>
+                    </div>
+                    
+                    <div id="waitingMessage" class="waiting-message">
+                        Wachten op andere teams...
+                    </div>
                 </div>
             </div>
         </div>
@@ -66,14 +147,18 @@
                             </button>
                             <button class="round-btn" data-round="puzzel">
                                 <span class="round-number">2</span>
-                                <span class="round-name">De Puzzel</span>
+                                <span class="round-name">De Puzzel (3 op een rij)</span>
                             </button>
-                            <button class="round-btn" data-round="galerij">
+                            <button class="round-btn" data-round="woordzoeker">
                                 <span class="round-number">3</span>
-                                <span class="round-name">De Galerij</span>
+                                <span class="round-name">De Woordzoeker</span>
+                            </button>
+                            <button class="round-btn" data-round="wat-weet-u">
+                                <span class="round-number">4</span>
+                                <span class="round-name">Wat Weet U Over...</span>
                             </button>
                             <button class="round-btn" data-round="collectief-geheugen">
-                                <span class="round-number">4</span>
+                                <span class="round-number">5</span>
                                 <span class="round-name">Het Collectief Geheugen</span>
                             </button>
                         </div>
@@ -92,27 +177,56 @@
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
 
-                    <!-- Puzzel Round -->
+                    <!-- Puzzel Round (3 op een rij) -->
                     <div id="puzzelRound" class="round-content">
-                        <h2 class="round-title">De Puzzel</h2>
+                        <h2 class="round-title">De Puzzel - 3 op een rij</h2>
                         <div class="question-display">
-                            <div id="puzzelQuestion" class="puzzle-question"></div>
-                            <div id="puzzelLetters" class="puzzle-letters"></div>
-                            <div id="puzzelAnswer" class="puzzle-answer-display"></div>
+                            <div id="puzzelInstruction" class="puzzle-instruction">Vind 3 woorden op basis van de 12 hints</div>
+                            <div id="puzzelGrid" class="puzzle-grid"></div>
+                            <div id="puzzelAnswers" class="puzzle-answers">
+                                <div class="puzzle-answer-row">
+                                    <span class="answer-label">Woord 1:</span>
+                                    <input type="text" id="puzzelAnswer1" class="puzzle-answer-input" placeholder="?">
+                                    <button class="btn-check" data-answer="1">✓</button>
+                                </div>
+                                <div class="puzzle-answer-row">
+                                    <span class="answer-label">Woord 2:</span>
+                                    <input type="text" id="puzzelAnswer2" class="puzzle-answer-input" placeholder="?">
+                                    <button class="btn-check" data-answer="2">✓</button>
+                                </div>
+                                <div class="puzzle-answer-row">
+                                    <span class="answer-label">Woord 3:</span>
+                                    <input type="text" id="puzzelAnswer3" class="puzzle-answer-input" placeholder="?">
+                                    <button class="btn-check" data-answer="3">✓</button>
+                                </div>
+                            </div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
 
-                    <!-- Galerij Round -->
-                    <div id="galerijnRound" class="round-content">
-                        <h2 class="round-title">De Galerij</h2>
+                    <!-- Woordzoeker Round -->
+                    <div id="woordzoekerRound" class="round-content">
+                        <h2 class="round-title">De Woordzoeker</h2>
                         <div class="question-display">
-                            <div id="galerijnImages" class="gallery-grid"></div>
-                            <div id="galerijnQuestion" class="gallery-question"></div>
-                            <div id="galerijnAnswer" class="answer-input-container">
-                                <input type="text" id="galerijnInput" placeholder="Type je antwoord...">
-                                <button id="galerijnSubmit" class="btn-primary">Bevestig</button>
+                            <div id="woordzoekerQuestion" class="puzzle-question"></div>
+                            <div id="woordzoekerLetters" class="puzzle-letters"></div>
+                            <div id="woordzoekerAnswer" class="puzzle-answer-display"></div>
+                        </div>
+                        <button class="btn-back">← Terug naar Rondes</button>
+                    </div>
+
+                    <!-- Wat Weet U Over Round -->
+                    <div id="watWeetURound" class="round-content">
+                        <h2 class="round-title">Wat Weet U Over...</h2>
+                        <div class="question-display">
+                            <div id="watWeetUSubject" class="wwu-subject"></div>
+                            <div id="watWeetUTimer" class="wwu-timer">60</div>
+                            <div id="watWeetUAnswers" class="wwu-answers"></div>
+                            <div id="watWeetUInput" class="answer-input-container">
+                                <input type="text" id="watWeetUInputField" placeholder="Noem een feit...">
+                                <button id="watWeetUSubmit" class="btn-primary">Bevestig</button>
                             </div>
+                            <div id="watWeetUScore" class="wwu-score"></div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
@@ -137,12 +251,26 @@
         <!-- Scoreboard View (for display screen) -->
         <div id="scoreboardView" class="view">
             <div class="scoreboard-container">
-                <h1 class="main-title">DE SLIMSTE<br><span class="highlight">MEIJERS</span></h1>
+                <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="scoreboardFamilyTitle">...</span></h1>
                 <div class="scoreboard-header">
                     <h2>Scorebord</h2>
+                    <div class="live-indicator">
+                        <span class="live-dot"></span>
+                        <span>LIVE</span>
+                    </div>
+                    <button id="toggleMusic" class="music-toggle">
+                        <span class="music-icon">🔊</span>
+                        <span class="music-text">Muziek</span>
+                    </button>
                 </div>
                 <div id="scoreboardContent" class="scoreboard-grid"></div>
             </div>
+            
+            <!-- Background Music -->
+            <audio id="backgroundMusic" loop>
+                <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+                <!-- Fallback: gebruik een andere bron of lokaal bestand -->
+            </audio>
         </div>
 
         <!-- Admin View -->
@@ -161,8 +289,9 @@
                             <label for="questionType">Ronde Type</label>
                             <select id="questionType" required>
                                 <option value="open-deur">De Open Deur</option>
-                                <option value="puzzel">De Puzzel</option>
-                                <option value="galerij">De Galerij</option>
+                                <option value="puzzel">De Puzzel (3 op een rij)</option>
+                                <option value="woordzoeker">De Woordzoeker</option>
+                                <option value="wat-weet-u">Wat Weet U Over...</option>
                                 <option value="collectief-geheugen">Het Collectief Geheugen</option>
                             </select>
                         </div>
