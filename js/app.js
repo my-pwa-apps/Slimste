@@ -26,6 +26,7 @@ let previousLeader = null; // Track previous leader for change detection
 let gameMode = null; // Track selected game mode
 let gameModeListener = null; // Track game mode listener
 let readyTeamsListener = null; // Track ready teams listener
+let roundStartTime = null; // Track when round started for time-based scoring
 let isAdminLoggedIn = false; // Track admin login status
 let familyName = ''; // Track family name
 
@@ -759,37 +760,83 @@ function updateTeamDisplay() {
     updateCompletedRoundsUI();
 }
 
-function updateCompletedRoundsUI() {
+async function updateCompletedRoundsUI() {
     const roundButtons = document.querySelectorAll('.round-btn');
     const roundOrder = ['open-deur', 'puzzel', 'woordzoeker', 'wat-weet-u', 'collectief-geheugen'];
     
-    roundButtons.forEach(btn => {
+    // Check if all teams exist and completed previous rounds
+    for (const btn of roundButtons) {
         const roundType = btn.getAttribute('data-round');
         const roundIndex = roundOrder.indexOf(roundType);
         
-        // Check if round is completed
+        // Check if round is completed by current team
         if (completedRounds.includes(roundType)) {
             btn.classList.add('completed');
             btn.disabled = false;
         } 
         // Check if this is the next round to play
         else if (roundIndex === completedRounds.length) {
-            btn.classList.remove('completed');
-            btn.classList.add('next-round');
-            btn.disabled = false;
+            // Check if all teams completed the previous round
+            let canPlayNextRound = true;
+            
+            if (roundIndex > 0) {
+                const previousRound = roundOrder[roundIndex - 1];
+                canPlayNextRound = await checkAllTeamsCompletedRound(previousRound);
+            }
+            
+            if (canPlayNextRound) {
+                btn.classList.remove('completed', 'locked');
+                btn.classList.add('next-round');
+                btn.disabled = false;
+            } else {
+                btn.classList.remove('completed', 'next-round');
+                btn.classList.add('locked');
+                btn.disabled = true;
+                btn.title = 'Wacht tot alle teams de vorige ronde hebben afgerond';
+            }
         }
         // Lock rounds that come later
         else if (roundIndex > completedRounds.length) {
             btn.classList.remove('completed', 'next-round');
             btn.classList.add('locked');
             btn.disabled = true;
+            btn.title = 'Voltooi eerst de vorige rondes';
         }
         // Previous rounds that aren't completed (shouldn't happen, but handle it)
         else {
             btn.classList.remove('completed', 'locked', 'next-round');
             btn.disabled = false;
         }
-    });
+    }
+}
+
+// Check if all teams completed the current round
+async function checkAllTeamsCompletedRound(roundType) {
+    try {
+        const teamsSnapshot = await get(ref(db, 'teams'));
+        if (!teamsSnapshot.exists()) {
+            return true; // No teams, so "all done"
+        }
+        
+        const teamsData = teamsSnapshot.val();
+        const teamsList = Object.values(teamsData);
+        
+        // If only 1 team, always return true (test mode)
+        if (teamsList.length === 1) {
+            return true;
+        }
+        
+        // Check if all teams completed this round
+        const allCompleted = teamsList.every(team => {
+            const teamCompletedRounds = team.completedRounds || [];
+            return teamCompletedRounds.includes(roundType);
+        });
+        
+        return allCompleted;
+    } catch (error) {
+        console.error('Error checking team completion:', error);
+        return false;
+    }
 }
 
 // Lobby functionality
@@ -943,6 +990,14 @@ function initializeRoundSelection() {
             returnToRoundSelection();
         });
     });
+    
+    // Listen to other teams' progress to update available rounds
+    onValue(ref(db, 'teams'), async () => {
+        // Only update if we're on the round selection screen
+        if (document.getElementById('roundSelection').classList.contains('active')) {
+            await updateCompletedRoundsUI();
+        }
+    });
 }
 
 async function startRound(roundType) {
@@ -969,6 +1024,7 @@ async function startRound(roundType) {
     
     currentRound = roundType;
     currentQuestionIndex = 0;
+    roundStartTime = Date.now(); // Start timer for this round
     
     // Hide round selection
     document.getElementById('roundSelection').classList.remove('active');
@@ -1670,14 +1726,44 @@ async function updateTeamSeconds(delta) {
 }
 
 async function completeRound() {
+    // Calculate time bonus for fast completion
+    let timeBonus = 0;
+    if (roundStartTime) {
+        const elapsedSeconds = Math.floor((Date.now() - roundStartTime) / 1000);
+        
+        // Award bonus seconds based on speed
+        // Under 60 seconds: 10 bonus seconds
+        // 60-120 seconds: 5 bonus seconds
+        // 120-180 seconds: 3 bonus seconds
+        // Over 180 seconds: 0 bonus
+        if (elapsedSeconds < 60) {
+            timeBonus = 10;
+        } else if (elapsedSeconds < 120) {
+            timeBonus = 5;
+        } else if (elapsedSeconds < 180) {
+            timeBonus = 3;
+        }
+        
+        if (timeBonus > 0) {
+            teamSeconds += timeBonus;
+            showNotification(`⚡ Snelheidsbonus: +${timeBonus} seconden! (${elapsedSeconds}s)`, 'success');
+        }
+        
+        roundStartTime = null; // Reset timer
+    }
+    
     if (!completedRounds.includes(currentRound)) {
         completedRounds.push(currentRound);
         
         if (currentTeam && currentTeam.id) {
             try {
                 const teamRef = ref(db, `teams/${currentTeam.id}`);
-                await update(teamRef, { completedRounds: completedRounds });
+                await update(teamRef, { 
+                    completedRounds: completedRounds,
+                    seconds: teamSeconds
+                });
                 currentTeam.completedRounds = completedRounds;
+                currentTeam.seconds = teamSeconds;
                 sessionStorage.setItem('currentTeam', JSON.stringify(currentTeam));
             } catch (error) {
                 console.error('Error updating completed rounds:', error);
@@ -1685,10 +1771,17 @@ async function completeRound() {
         }
     }
     
+    // Check if all teams completed this round
+    const allTeamsCompleted = await checkAllTeamsCompletedRound(currentRound);
+    
     // Update UI BEFORE showing notification and returning
     updateCompletedRoundsUI();
     
-    showNotification(`✅ Ronde voltooid! Je hebt nu ${teamSeconds} seconden.`, 'success');
+    if (allTeamsCompleted) {
+        showNotification(`✅ Ronde voltooid! Je hebt nu ${teamSeconds} seconden. Volgende ronde is beschikbaar!`, 'success');
+    } else {
+        showNotification(`✅ Ronde voltooid! Je hebt nu ${teamSeconds} seconden. Wacht tot andere teams klaar zijn...`, 'success');
+    }
     
     // Return to round selection
     returnToRoundSelection();
