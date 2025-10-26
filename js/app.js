@@ -106,6 +106,8 @@ let readyTeamsListener = null; // Track ready teams listener
 let roundStartTime = null; // Track when round started for time-based scoring
 let isAdminLoggedIn = false; // Track admin login status
 let familyName = ''; // Track family name
+let roundTimeoutId = null; // Track round timeout for cleanup
+let roundTimeLeft = 0; // Track remaining time for current round
 
 // Game mode configurations
 const GAME_MODES = {
@@ -113,6 +115,7 @@ const GAME_MODES = {
         name: 'Test Modus',
         duration: '~5 minuten',
         icon: '⚡',
+        roundTimeLimit: 180, // 3 minutes per round
         questionsPerRound: {
             'open-deur': 2,
             'puzzel': 1,
@@ -125,6 +128,7 @@ const GAME_MODES = {
         name: 'Kort Spel',
         duration: '~30 minuten',
         icon: '⏱️',
+        roundTimeLimit: 360, // 6 minutes per round
         questionsPerRound: {
             'open-deur': 5,
             'puzzel': 2,
@@ -137,6 +141,7 @@ const GAME_MODES = {
         name: 'Normaal Spel',
         duration: '~60 minuten',
         icon: '🎯',
+        roundTimeLimit: 600, // 10 minutes per round
         questionsPerRound: {
             'open-deur': 8,
             'puzzel': 4,
@@ -149,6 +154,7 @@ const GAME_MODES = {
         name: 'Lang Spel',
         duration: '~90 minuten',
         icon: '🏆',
+        roundTimeLimit: 900, // 15 minutes per round
         questionsPerRound: {
             'open-deur': 12,
             'puzzel': 6,
@@ -814,12 +820,29 @@ function listenToGameMode() {
     
     // Also listen to game started status
     onValue(ref(db, 'gameState/gameStarted'), (snapshot) => {
-        if (snapshot.exists() && snapshot.val() === true) {
-            // Game has started, redirect to game view if in lobby
-            const activeView = document.querySelector('.view.active');
-            if (activeView && activeView.id === 'lobbyView') {
-                showView('gameView');
-                showNotification('🎮 Het spel is begonnen! Veel succes!', 'success');
+        const activeView = document.querySelector('.view.active');
+        
+        if (snapshot.exists()) {
+            const gameStarted = snapshot.val();
+            
+            if (gameStarted === true) {
+                // Game has started, redirect to game view if in lobby
+                if (activeView && activeView.id === 'lobbyView') {
+                    showView('gameView');
+                    showNotification('🎮 Het spel is begonnen! Veel succes!', 'success');
+                }
+            } else if (gameStarted === false) {
+                // Game has been reset, redirect to lobby if in game view
+                if (activeView && activeView.id === 'gameView') {
+                    showView('lobbyView');
+                    showNotification('🔄 Het spel is gereset door de admin. Terug naar de lobby!', 'warning');
+                    
+                    // Clear current team's round progress
+                    currentRound = null;
+                    currentQuestionIndex = 0;
+                    currentQuestions = [];
+                    completedRounds = [];
+                }
             }
         }
     });
@@ -1251,10 +1274,115 @@ async function startRound(roundType) {
         
         // Initialize round-specific logic
         initializeRoundLogic(roundType);
+        
+        // Start round timer
+        startRoundTimer();
     }
 }
 
+function startRoundTimer() {
+    // Clear any existing timer
+    if (roundTimeoutId) {
+        clearInterval(roundTimeoutId);
+    }
+    
+    // Use mode-specific round time limit with fallback
+    const modeConfig = currentGameState?.gameMode ? GAME_MODES[currentGameState.gameMode] : null;
+    roundTimeLeft = modeConfig?.roundTimeLimit || 600; // Default to 10 minutes if not set
+    updateRoundTimerDisplay();
+    
+    // Show timer in UI
+    const timerDisplay = document.getElementById('roundTimerDisplay');
+    if (timerDisplay) {
+        timerDisplay.classList.remove('hidden');
+    }
+    
+    // Update timer every second
+    roundTimeoutId = setInterval(() => {
+        roundTimeLeft--;
+        updateRoundTimerDisplay();
+        
+        // Warning at 1 minute
+        if (roundTimeLeft === 60) {
+            showNotification('⏰ Nog 1 minuut voor deze ronde!', 'warning', 3000);
+        }
+        
+        // Warning at 30 seconds
+        if (roundTimeLeft === 30) {
+            showNotification('⏰ Nog 30 seconden!', 'warning', 3000);
+        }
+        
+        // Time's up
+        if (roundTimeLeft <= 0) {
+            clearInterval(roundTimeoutId);
+            handleRoundTimeout();
+        }
+    }, 1000);
+}
+
+function updateRoundTimerDisplay() {
+    const timerDisplay = document.getElementById('roundTimerValue');
+    if (timerDisplay) {
+        const minutes = Math.floor(roundTimeLeft / 60);
+        const seconds = roundTimeLeft % 60;
+        timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Add warning class when time is running low
+        const container = document.getElementById('roundTimerDisplay');
+        if (container) {
+            if (roundTimeLeft <= 60) {
+                container.classList.add('warning');
+            } else {
+                container.classList.remove('warning');
+            }
+        }
+    }
+}
+
+function stopRoundTimer() {
+    if (roundTimeoutId) {
+        clearInterval(roundTimeoutId);
+        roundTimeoutId = null;
+    }
+    
+    const timerDisplay = document.getElementById('roundTimerDisplay');
+    if (timerDisplay) {
+        timerDisplay.classList.add('hidden');
+    }
+}
+
+async function handleRoundTimeout() {
+    console.log('Round time expired!');
+    showNotification('⏱️ Tijd voor deze ronde is voorbij! Je gaat terug naar ronde selectie.', 'warning', 4000);
+    
+    // Wait a bit for the notification
+    setTimeout(async () => {
+        // Mark round as completed even if not finished
+        if (currentRound && !completedRounds.includes(currentRound)) {
+            completedRounds.push(currentRound);
+            
+            // Save to database
+            if (currentTeam && currentTeam.id) {
+                try {
+                    const teamRef = ref(db, `teams/${currentTeam.id}`);
+                    await update(teamRef, { 
+                        completedRounds: completedRounds 
+                    });
+                } catch (error) {
+                    console.error('Error updating completed rounds:', error);
+                }
+            }
+        }
+        
+        // Return to round selection
+        await returnToRoundSelection();
+    }, 2000);
+}
+
 async function returnToRoundSelection() {
+    // Stop round timer
+    stopRoundTimer();
+    
     document.querySelectorAll('.round-content').forEach(content => {
         content.classList.remove('active');
     });
@@ -2138,6 +2266,9 @@ function showCorrectAnswerForCollectiefGeheugen(question) {
 }
 
 async function completeRound() {
+    // Stop round timer
+    stopRoundTimer();
+    
     // Calculate time bonus for fast completion
     let timeBonus = 0;
     if (roundStartTime) {
@@ -3015,7 +3146,7 @@ function showDatabaseError(error) {
     }, 30000);
 }
 
-function showNotification(message, type = 'info') {
+function showNotification(message, type = 'info', duration = 2500) {
     // Remove any existing notifications first
     const existingNotifications = document.querySelectorAll('.app-notification');
     existingNotifications.forEach(notif => notif.remove());
@@ -3039,32 +3170,30 @@ function showNotification(message, type = 'info') {
     notificationDiv.style.cssText = `
         position: fixed;
         top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+        right: 20px;
         background: ${bgColor};
         color: white;
-        padding: 20px 40px;
-        border-radius: 15px;
-        font-size: 1.2rem;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-size: 0.95rem;
         font-weight: 600;
         text-align: center;
         z-index: 10001;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 0 3px ${borderColor}33;
-        max-width: 90%;
-        min-width: 300px;
-        animation: slideDown 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        max-width: 320px;
+        animation: slideInRight 0.3s ease-out;
+        pointer-events: none;
     `;
     notificationDiv.textContent = message;
     document.body.appendChild(notificationDiv);
     
-    // Auto remove after 4 seconds
+    // Auto remove after specified duration
     setTimeout(() => {
-        notificationDiv.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        notificationDiv.style.transition = 'all 0.3s ease-in';
         notificationDiv.style.opacity = '0';
-        notificationDiv.style.transform = 'translateX(-50%) translateY(-30px)';
-        setTimeout(() => notificationDiv.remove(), 500);
-    }, 4000);
+        notificationDiv.style.transform = 'translateX(20px)';
+        setTimeout(() => notificationDiv.remove(), 300);
+    }, duration);
 }
 
 async function addDefaultQuestions() {
