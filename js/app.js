@@ -1,18 +1,17 @@
-// Main Application Logic
+// Main Application Logic - Using Firebase Realtime Database
 import { db } from './firebase-config.js';
 import { 
-    collection, 
-    addDoc, 
-    getDocs, 
-    doc, 
-    updateDoc, 
-    deleteDoc,
+    ref,
+    set,
+    get,
+    update,
+    remove,
+    push,
+    onValue,
     query,
-    orderBy,
-    onSnapshot,
-    setDoc,
-    getDoc
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    orderByChild,
+    child
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 // Global State
 let currentTeam = null;
@@ -24,6 +23,9 @@ let completedRounds = [];
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    // Show loading indicator
+    showLoadingMessage();
+    
     initializeNavigation();
     initializeTeamForm();
     initializeRoundSelection();
@@ -37,7 +39,44 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTeam = JSON.parse(savedTeam);
         updateTeamDisplay();
     }
+    
+    // Hide loading after 2 seconds
+    setTimeout(hideLoadingMessage, 2000);
 });
+
+function showLoadingMessage() {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loadingMessage';
+    loadingDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 78, 137, 0.95);
+        color: white;
+        padding: 30px 50px;
+        border-radius: 15px;
+        font-size: 1.2rem;
+        text-align: center;
+        z-index: 10000;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    `;
+    loadingDiv.innerHTML = `
+        <div style="font-size: 2rem; margin-bottom: 15px;">🔥</div>
+        <div>Laden...</div>
+        <div style="font-size: 0.9rem; margin-top: 10px; opacity: 0.8;">Verbinden met database</div>
+    `;
+    document.body.appendChild(loadingDiv);
+}
+
+function hideLoadingMessage() {
+    const loadingDiv = document.getElementById('loadingMessage');
+    if (loadingDiv) {
+        loadingDiv.style.transition = 'opacity 0.5s ease';
+        loadingDiv.style.opacity = '0';
+        setTimeout(() => loadingDiv.remove(), 500);
+    }
+}
 
 // Navigation
 function initializeNavigation() {
@@ -98,20 +137,23 @@ function initializeTeamForm() {
             players: players,
             seconds: 60,
             completedRounds: [],
-            timestamp: new Date()
+            timestamp: Date.now()
         };
         
-        // Save to Firebase
+        // Save to Realtime Database
         try {
-            const docRef = await addDoc(collection(db, 'teams'), currentTeam);
-            currentTeam.id = docRef.id;
+            const teamsRef = ref(db, 'teams');
+            const newTeamRef = push(teamsRef);
+            await set(newTeamRef, currentTeam);
+            
+            currentTeam.id = newTeamRef.key;
             sessionStorage.setItem('currentTeam', JSON.stringify(currentTeam));
             
             updateTeamDisplay();
             showView('gameView');
         } catch (error) {
             console.error('Error adding team:', error);
-            alert('Er ging iets mis bij het aanmelden. Probeer opnieuw.');
+            showDatabaseError(error);
         }
     });
 }
@@ -198,16 +240,19 @@ function returnToRoundSelection() {
 
 async function loadQuestionsForRound(roundType) {
     try {
-        const q = query(collection(db, 'questions'), orderBy('timestamp', 'asc'));
-        const querySnapshot = await getDocs(q);
+        const questionsRef = ref(db, 'questions');
+        const snapshot = await get(questionsRef);
         
         currentQuestions = [];
-        querySnapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.type === roundType) {
-                currentQuestions.push({ id: doc.id, ...data });
-            }
-        });
+        if (snapshot.exists()) {
+            const questionsData = snapshot.val();
+            Object.keys(questionsData).forEach(key => {
+                const question = questionsData[key];
+                if (question.type === roundType) {
+                    currentQuestions.push({ id: key, ...question });
+                }
+            });
+        }
         
         if (currentQuestions.length === 0) {
             console.warn(`No questions found for round: ${roundType}`);
@@ -569,8 +614,8 @@ async function updateTeamSeconds(delta) {
     
     if (currentTeam && currentTeam.id) {
         try {
-            const teamRef = doc(db, 'teams', currentTeam.id);
-            await updateDoc(teamRef, { seconds: teamSeconds });
+            const teamRef = ref(db, `teams/${currentTeam.id}`);
+            await update(teamRef, { seconds: teamSeconds });
             currentTeam.seconds = teamSeconds;
             sessionStorage.setItem('currentTeam', JSON.stringify(currentTeam));
         } catch (error) {
@@ -585,8 +630,8 @@ async function completeRound() {
         
         if (currentTeam && currentTeam.id) {
             try {
-                const teamRef = doc(db, 'teams', currentTeam.id);
-                await updateDoc(teamRef, { completedRounds: completedRounds });
+                const teamRef = ref(db, `teams/${currentTeam.id}`);
+                await update(teamRef, { completedRounds: completedRounds });
                 currentTeam.completedRounds = completedRounds;
                 sessionStorage.setItem('currentTeam', JSON.stringify(currentTeam));
             } catch (error) {
@@ -603,12 +648,16 @@ async function completeRound() {
 // Scoreboard
 async function loadScoreboard() {
     try {
-        const querySnapshot = await getDocs(collection(db, 'teams'));
+        const teamsRef = ref(db, 'teams');
+        const snapshot = await get(teamsRef);
         const teams = [];
         
-        querySnapshot.forEach(doc => {
-            teams.push({ id: doc.id, ...doc.data() });
-        });
+        if (snapshot.exists()) {
+            const teamsData = snapshot.val();
+            Object.keys(teamsData).forEach(key => {
+                teams.push({ id: key, ...teamsData[key] });
+            });
+        }
         
         // Sort by seconds (descending)
         teams.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
@@ -753,7 +802,7 @@ function renderQuestionFields(type) {
 
 async function addQuestion() {
     const type = document.getElementById('questionType').value;
-    let questionData = { type, timestamp: new Date() };
+    let questionData = { type, timestamp: Date.now() };
     
     try {
         switch(type) {
@@ -779,7 +828,10 @@ async function addQuestion() {
                 break;
         }
         
-        await addDoc(collection(db, 'questions'), questionData);
+        const questionsRef = ref(db, 'questions');
+        const newQuestionRef = push(questionsRef);
+        await set(newQuestionRef, questionData);
+        
         alert('Vraag toegevoegd!');
         document.getElementById('addQuestionForm').reset();
         renderQuestionFields(type);
@@ -792,17 +844,19 @@ async function addQuestion() {
 
 async function loadQuestionsList() {
     try {
-        const querySnapshot = await getDocs(collection(db, 'questions'));
+        const questionsRef = ref(db, 'questions');
+        const snapshot = await get(questionsRef);
         const questionsList = document.getElementById('questionsList');
         questionsList.innerHTML = '<h3>Alle Vragen</h3>';
         
-        if (querySnapshot.empty) {
+        if (!snapshot.exists()) {
             questionsList.innerHTML += '<p>Nog geen vragen toegevoegd.</p>';
             return;
         }
         
-        querySnapshot.forEach(doc => {
-            const data = doc.data();
+        const questionsData = snapshot.val();
+        Object.keys(questionsData).forEach(key => {
+            const data = questionsData[key];
             const questionDiv = document.createElement('div');
             questionDiv.className = 'question-item';
             
@@ -825,7 +879,7 @@ async function loadQuestionsList() {
             questionDiv.innerHTML = `
                 <div class="question-type">${data.type}</div>
                 <div class="question-content">${content}</div>
-                <button class="btn-danger" onclick="deleteQuestion('${doc.id}')">Verwijderen</button>
+                <button class="btn-danger" onclick="deleteQuestion('${key}')">Verwijderen</button>
             `;
             
             questionsList.appendChild(questionDiv);
@@ -838,7 +892,8 @@ async function loadQuestionsList() {
 window.deleteQuestion = async function(questionId) {
     if (confirm('Weet je zeker dat je deze vraag wilt verwijderen?')) {
         try {
-            await deleteDoc(doc(db, 'questions', questionId));
+            const questionRef = ref(db, `questions/${questionId}`);
+            await remove(questionRef);
             loadQuestionsList();
         } catch (error) {
             console.error('Error deleting question:', error);
@@ -849,17 +904,19 @@ window.deleteQuestion = async function(questionId) {
 
 async function loadActiveTeams() {
     try {
-        const querySnapshot = await getDocs(collection(db, 'teams'));
+        const teamsRef = ref(db, 'teams');
+        const snapshot = await get(teamsRef);
         const activeTeamsDiv = document.getElementById('activeTeams');
         activeTeamsDiv.innerHTML = '';
         
-        if (querySnapshot.empty) {
+        if (!snapshot.exists()) {
             activeTeamsDiv.innerHTML = '<p>Nog geen actieve teams.</p>';
             return;
         }
         
-        querySnapshot.forEach(doc => {
-            const data = doc.data();
+        const teamsData = snapshot.val();
+        Object.keys(teamsData).forEach(key => {
+            const data = teamsData[key];
             const teamDiv = document.createElement('div');
             teamDiv.className = 'question-item';
             teamDiv.innerHTML = `
@@ -869,7 +926,7 @@ async function loadActiveTeams() {
                     Seconden: ${data.seconds || 60}<br>
                     Rondes voltooid: ${data.completedRounds ? data.completedRounds.length : 0}/4
                 </div>
-                <button class="btn-danger" onclick="deleteTeam('${doc.id}')">Verwijderen</button>
+                <button class="btn-danger" onclick="deleteTeam('${key}')">Verwijderen</button>
             `;
             activeTeamsDiv.appendChild(teamDiv);
         });
@@ -881,7 +938,8 @@ async function loadActiveTeams() {
 window.deleteTeam = async function(teamId) {
     if (confirm('Weet je zeker dat je dit team wilt verwijderen?')) {
         try {
-            await deleteDoc(doc(db, 'teams', teamId));
+            const teamRef = ref(db, `teams/${teamId}`);
+            await remove(teamRef);
             loadActiveTeams();
             loadScoreboard();
         } catch (error) {
@@ -893,14 +951,8 @@ window.deleteTeam = async function(teamId) {
 
 async function resetGame() {
     try {
-        const querySnapshot = await getDocs(collection(db, 'teams'));
-        const deletePromises = [];
-        
-        querySnapshot.forEach(doc => {
-            deletePromises.push(deleteDoc(doc.ref));
-        });
-        
-        await Promise.all(deletePromises);
+        const teamsRef = ref(db, 'teams');
+        await remove(teamsRef);
         
         // Clear session storage
         sessionStorage.removeItem('currentTeam');
@@ -919,15 +971,72 @@ async function resetGame() {
 // Initialize default questions if database is empty
 async function initializeDefaultQuestions() {
     try {
-        const querySnapshot = await getDocs(collection(db, 'questions'));
+        console.log('Checking for existing questions...');
+        const questionsRef = ref(db, 'questions');
+        const snapshot = await get(questionsRef);
         
-        if (querySnapshot.empty) {
+        if (!snapshot.exists()) {
             console.log('Initializing default questions...');
             await addDefaultQuestions();
+        } else {
+            console.log('Questions already exist');
         }
     } catch (error) {
         console.error('Error checking questions:', error);
+        
+        // Show user-friendly error message
+        if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission')) {
+            showDatabaseError(error);
+        }
     }
+}
+
+function showDatabaseError(error) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #FF4757;
+        color: white;
+        padding: 20px 30px;
+        border-radius: 10px;
+        font-size: 1rem;
+        text-align: center;
+        z-index: 10001;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        max-width: 90%;
+        animation: slideDown 0.5s ease-out;
+    `;
+    errorDiv.innerHTML = `
+        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+        <div style="font-weight: bold; margin-bottom: 10px;">Firebase Realtime Database Niet Geactiveerd!</div>
+        <div style="font-size: 0.9rem; margin-bottom: 15px;">
+            Ga naar Firebase Console en activeer Realtime Database.<br>
+            <strong>Zie REALTIME-DATABASE-SETUP.md voor instructies.</strong>
+        </div>
+        <button onclick="this.parentElement.remove()" style="
+            background: white;
+            color: #FF4757;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        ">Sluiten</button>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    // Auto-hide after 30 seconds
+    setTimeout(() => {
+        if (errorDiv.parentElement) {
+            errorDiv.style.transition = 'opacity 0.5s ease';
+            errorDiv.style.opacity = '0';
+            setTimeout(() => errorDiv.remove(), 500);
+        }
+    }, 30000);
 }
 
 async function addDefaultQuestions() {
@@ -942,7 +1051,7 @@ async function addDefaultQuestions() {
                 'Oranje is de nationale kleur'
             ],
             answer: 'Nederland',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'open-deur',
@@ -953,7 +1062,7 @@ async function addDefaultQuestions() {
                 'Het leeft in Afrika'
             ],
             answer: 'Zebra',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'open-deur',
@@ -964,7 +1073,7 @@ async function addDefaultQuestions() {
                 'De dokter blijft ermee weg'
             ],
             answer: 'Appel',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'open-deur',
@@ -975,7 +1084,7 @@ async function addDefaultQuestions() {
                 'Het is 330 meter hoog'
             ],
             answer: 'Eiffeltoren',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'open-deur',
@@ -986,7 +1095,7 @@ async function addDefaultQuestions() {
                 'Het is vernoemd naar een Romeinse god'
             ],
             answer: 'Jupiter',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         
         // Puzzel vragen
@@ -994,37 +1103,37 @@ async function addDefaultQuestions() {
             type: 'puzzel',
             question: 'Hoofdstad van Frankrijk',
             answer: 'PARIJS',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'puzzel',
             question: 'Grootste oceaan ter wereld',
             answer: 'PACIFIC',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'puzzel',
             question: 'Kleur van een banaan',
             answer: 'GEEL',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'puzzel',
             question: 'Dier dat eieren legt en kan vliegen',
             answer: 'VOGEL',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'puzzel',
             question: 'Seizoen na de herfst',
             answer: 'WINTER',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'puzzel',
             question: 'Instrument met 88 toetsen',
             answer: 'PIANO',
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         
         // Galerij vragen
@@ -1033,28 +1142,28 @@ async function addDefaultQuestions() {
             question: 'Wat is de gemeenschappelijke link tussen deze afbeeldingen?',
             answer: 'Kleuren',
             images: [],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'galerij',
             question: 'Welk thema verbindt deze beelden?',
             answer: 'Natuur',
             images: [],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'galerij',
             question: 'Wat hebben deze afbeeldingen gemeen?',
             answer: 'Transport',
             images: [],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'galerij',
             question: 'Welke categorie past bij deze afbeeldingen?',
             answer: 'Dieren',
             images: [],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         
         // Collectief Geheugen vragen
@@ -1062,43 +1171,46 @@ async function addDefaultQuestions() {
             type: 'collectief-geheugen',
             category: 'Nederlandse Provincies',
             answers: ['Noord-Holland', 'Zuid-Holland', 'Utrecht', 'Gelderland', 'Overijssel', 'Flevoland', 'Friesland', 'Groningen', 'Drenthe', 'Zeeland', 'Noord-Brabant', 'Limburg'],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'collectief-geheugen',
             category: 'Europese Hoofdsteden',
             answers: ['Amsterdam', 'Berlijn', 'Parijs', 'Londen', 'Rome', 'Madrid', 'Brussel', 'Wenen', 'Praag', 'Stockholm', 'Oslo', 'Kopenhagen'],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'collectief-geheugen',
             category: 'Dagen van de Week',
             answers: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'collectief-geheugen',
             category: 'Kleuren van de Regenboog',
             answers: ['Rood', 'Oranje', 'Geel', 'Groen', 'Blauw', 'Indigo', 'Violet'],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'collectief-geheugen',
             category: 'Continenten',
             answers: ['Afrika', 'Antarctica', 'Azië', 'Europa', 'Noord-Amerika', 'Oceanië', 'Zuid-Amerika'],
-            timestamp: new Date()
+            timestamp: Date.now()
         },
         {
             type: 'collectief-geheugen',
             category: 'Planeten in ons Zonnestelsel',
             answers: ['Mercurius', 'Venus', 'Aarde', 'Mars', 'Jupiter', 'Saturnus', 'Uranus', 'Neptunus'],
-            timestamp: new Date()
+            timestamp: Date.now()
         }
     ];
     
     try {
-        const addPromises = defaultQuestions.map(q => addDoc(collection(db, 'questions'), q));
-        await Promise.all(addPromises);
+        const questionsRef = ref(db, 'questions');
+        for (const question of defaultQuestions) {
+            const newQuestionRef = push(questionsRef);
+            await set(newQuestionRef, question);
+        }
         console.log('Default questions added successfully!');
     } catch (error) {
         console.error('Error adding default questions:', error);

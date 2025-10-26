@@ -1,16 +1,39 @@
 # 🚀 Snelstart Gids
 
-## Stap 1: Firebase Database Setup
+## ⚠️ BELANGRIJK: Stap 1 - Firebase Realtime Database Setup
 
-Voordat je begint, moet je Firestore activeren in Firebase:
+**Je MOET dit doen anders werkt de website niet!**
+
+De app gebruikt **Firebase Realtime Database** (100% GRATIS!) voor data opslag.
+
+### Activeer Realtime Database (5 minuten):
 
 1. Ga naar [Firebase Console](https://console.firebase.google.com/)
 2. Open je project: **de-slimste-meijers**
-3. Klik op **Firestore Database** in het linkermenu
-4. Klik op **Create Database**
-5. Selecteer **Start in test mode** (of production mode met de regels uit firestore.rules)
-6. Kies een locatie (bijvoorbeeld: europe-west)
-7. Klik op **Enable**
+3. Klik op **Realtime Database** in het linkermenu (of Build → Realtime Database)
+4. Klik op **"Create Database"** knop
+5. Selecteer locatie: **europe-west1** (België)
+6. Selecteer **"Start in test mode"** ← Belangrijk!
+7. Klik op **"Enable"**
+8. Ga naar **"Rules"** tab
+9. Vervang de regels met:
+   ```json
+   {
+     "rules": {
+       ".read": true,
+       ".write": true
+     }
+   }
+   ```
+10. Klik **"Publish"**
+
+📖 **Gedetailleerde instructies**: Zie `REALTIME-DATABASE-SETUP.md`
+
+✅ **Voordelen Realtime Database**:
+- 100% GRATIS (Spark Plan)
+- Real-time synchronisatie
+- Geen credit card nodig
+- Perfect voor familie events
 
 ## Stap 2: Test Lokaal (Snelste Manier)
 
