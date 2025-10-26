@@ -414,10 +414,16 @@ async function loadPinCodeInLobby() {
         const pinCodeSnapshot = await get(ref(db, 'gameState/pinCode'));
         if (pinCodeSnapshot.exists()) {
             const pinCode = pinCodeSnapshot.val();
+            console.log('Loading PIN code in lobby:', pinCode);
             const lobbyPinCodeValue = document.getElementById('lobbyPinCodeValue');
             if (lobbyPinCodeValue) {
                 lobbyPinCodeValue.textContent = pinCode;
+                console.log('PIN code set successfully in lobby');
+            } else {
+                console.warn('lobbyPinCodeValue element not found');
             }
+        } else {
+            console.warn('No PIN code found in database');
         }
     } catch (error) {
         console.error('Error loading PIN code in lobby:', error);
@@ -847,8 +853,20 @@ async function checkAllTeamsCompletedRound(roundType) {
 function initializeLobby() {
     const readyBtn = document.getElementById('readyBtn');
     
-    // Load PIN code in lobby
+    // Load PIN code in lobby initially
     loadPinCodeInLobby();
+    
+    // Add real-time listener for PIN code updates
+    onValue(ref(db, 'gameState/pinCode'), (snapshot) => {
+        if (snapshot.exists()) {
+            const pinCode = snapshot.val();
+            const lobbyPinCodeValue = document.getElementById('lobbyPinCodeValue');
+            if (lobbyPinCodeValue) {
+                lobbyPinCodeValue.textContent = pinCode;
+                console.log('PIN code updated in lobby via listener:', pinCode);
+            }
+        }
+    });
     
     // Listen to all teams
     listenToTeams();
