@@ -1837,6 +1837,8 @@ function loadScoreboard() {
             const pinCode = gameState.pinCode || '----';
             const familyNameValue = gameState.familyName || familyName || '...';
             
+            console.log('Scoreboard update - PIN code:', pinCode, 'Game started:', gameStarted);
+            
             // Update family name in scoreboard title
             const scoreboardFamilyTitle = document.getElementById('scoreboardFamilyTitle');
             if (scoreboardFamilyTitle) {
@@ -1847,6 +1849,16 @@ function loadScoreboard() {
             const scoreboardPinCodeElem = document.getElementById('scoreboardPinCode');
             if (scoreboardPinCodeElem) {
                 scoreboardPinCodeElem.textContent = pinCode;
+                console.log('PIN code set in scoreboard:', pinCode);
+            } else {
+                console.warn('scoreboardPinCode element not found!');
+            }
+            
+            // Ensure PIN display is visible
+            const scoreboardPinDisplay = document.getElementById('scoreboardPinDisplay');
+            if (scoreboardPinDisplay) {
+                scoreboardPinDisplay.style.display = 'block';
+                console.log('PIN display visibility ensured');
             }
             
             const lobbySection = document.getElementById('lobbySection');
