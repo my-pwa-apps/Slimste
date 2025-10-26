@@ -1845,8 +1845,10 @@ function loadScoreboard() {
                 scoreboardFamilyTitle.textContent = familyNameValue.toUpperCase();
             }
             
-            // Update PIN code display
+            // Update PIN code display (always visible at top)
             const scoreboardPinCodeElem = document.getElementById('scoreboardPinCode');
+            const scoreboardPinDisplay = document.getElementById('scoreboardPinDisplay');
+            
             if (scoreboardPinCodeElem) {
                 scoreboardPinCodeElem.textContent = pinCode;
                 console.log('PIN code set in scoreboard:', pinCode);
@@ -1854,11 +1856,17 @@ function loadScoreboard() {
                 console.warn('scoreboardPinCode element not found!');
             }
             
-            // Ensure PIN display is visible
-            const scoreboardPinDisplay = document.getElementById('scoreboardPinDisplay');
+            // Show/hide PIN based on game state
             if (scoreboardPinDisplay) {
-                scoreboardPinDisplay.style.display = 'block';
-                console.log('PIN display visibility ensured');
+                if (gameStarted) {
+                    // Hide PIN when game has started
+                    scoreboardPinDisplay.classList.add('hidden');
+                    console.log('PIN hidden - game started');
+                } else {
+                    // Show PIN during lobby phase
+                    scoreboardPinDisplay.classList.remove('hidden');
+                    console.log('PIN visible - lobby phase');
+                }
             }
             
             const lobbySection = document.getElementById('lobbySection');
@@ -1958,7 +1966,7 @@ function loadLobbyTeams() {
 function loadActualScoreboard() {
     const teamsRef = ref(db, 'teams');
     
-    onValue(teamsRef, (snapshot) => {
+    onValue(teamsRef, async (snapshot) => {
         const teams = [];
         
         if (snapshot.exists()) {
@@ -1987,6 +1995,12 @@ function loadActualScoreboard() {
         
         // Only update if scoreboard view is active or visible
         if (!scoreboardContent) return;
+        
+        // Always show end game button when scoreboard is visible
+        const endGameSection = document.getElementById('endGameSection');
+        if (endGameSection) {
+            endGameSection.classList.remove('hidden');
+        }
         
         // Smooth transition: fade out
         scoreboardContent.style.opacity = '0.5';
@@ -2108,6 +2122,10 @@ function initializeScoreboardMusic() {
     // Set volume
     music.volume = 0.3;
     
+    // Ensure music starts paused
+    music.pause();
+    toggleBtn.classList.remove('playing');
+    
     // Toggle music on button click
     toggleBtn.addEventListener('click', () => {
         if (music.paused) {
@@ -2123,17 +2141,6 @@ function initializeScoreboardMusic() {
             toggleBtn.querySelector('.music-text').textContent = 'Muziek';
         }
     });
-    
-    // Optional: Auto-play (may be blocked by browser)
-    setTimeout(() => {
-        music.play().catch(err => {
-            console.log('Autoplay prevented - user must click to start music');
-        });
-        if (!music.paused) {
-            toggleBtn.classList.add('playing');
-            toggleBtn.querySelector('.music-text').textContent = 'Pauzeer';
-        }
-    }, 500);
 }
 
 function stopScoreboardMusic() {
@@ -2210,7 +2217,28 @@ function initializeAdminPanel() {
     const resetGameBtn = document.getElementById('resetGameBtn');
     if (resetGameBtn) {
         resetGameBtn.addEventListener('click', async () => {
-            if (confirm('Weet je zeker dat je alle scores wilt resetten?')) {
+            if (confirm('Weet je zeker dat je het spel wilt resetten? Teams blijven behouden maar scores worden op 60 seconden gezet en gameStarted wordt false.')) {
+                await resetGame();
+            }
+        });
+    }
+    
+    const fullResetBtn = document.getElementById('fullResetBtn');
+    if (fullResetBtn) {
+        fullResetBtn.addEventListener('click', async () => {
+            if (confirm('⚠️ WAARSCHUWING: Dit verwijdert ALLE teams en reset het volledige spel! Weet je het zeker?')) {
+                if (confirm('Laatste bevestiging: ALLE data wordt verwijderd. Doorgaan?')) {
+                    await fullResetGame();
+                }
+            }
+        });
+    }
+    
+    // End Game button from scoreboard view
+    const endGameBtn = document.getElementById('endGameBtn');
+    if (endGameBtn) {
+        endGameBtn.addEventListener('click', async () => {
+            if (confirm('🏆 Spel beëindigen en terug naar lobby? Teams blijven behouden maar het spel wordt gereset.')) {
                 await resetGame();
             }
         });
@@ -2475,20 +2503,53 @@ window.deleteTeam = async function(teamId) {
 
 async function resetGame() {
     try {
+        // Reset game state (keep teams, reset scores and game started status)
+        await set(ref(db, 'gameState/gameStarted'), false);
+        
+        // Reset all team scores and completed rounds
+        const teamsSnapshot = await get(ref(db, 'teams'));
+        if (teamsSnapshot.exists()) {
+            const teams = teamsSnapshot.val();
+            const updates = {};
+            
+            Object.keys(teams).forEach(teamId => {
+                updates[`teams/${teamId}/seconds`] = 60;
+                updates[`teams/${teamId}/completedRounds`] = [];
+                updates[`teams/${teamId}/ready`] = false;
+            });
+            
+            await update(ref(db), updates);
+        }
+        
+        showNotification('✅ Spel gereset! Teams blijven behouden, scores zijn teruggezet.', 'success');
+        loadActiveTeams();
+        loadScoreboard();
+    } catch (error) {
+        console.error('Error resetting game:', error);
+        showNotification('❌ Er ging iets mis bij het resetten.', 'error');
+    }
+}
+
+async function fullResetGame() {
+    try {
+        // Remove all teams
         const teamsRef = ref(db, 'teams');
         await remove(teamsRef);
+        
+        // Reset game state
+        await set(ref(db, 'gameState/gameStarted'), false);
         
         // Clear session storage
         sessionStorage.removeItem('currentTeam');
         currentTeam = null;
         
-        showNotification('✅ Alle teams en scores zijn gereset!', 'success');
+        showNotification('✅ Volledige reset! Alle teams zijn verwijderd en het spel is gereset.', 'success');
         loadActiveTeams();
         loadScoreboard();
         showView('loginView');
     } catch (error) {
-        console.error('Error resetting game:', error);
-        showNotification('❌ Er ging iets mis bij het resetten.', 'error');
+        console.error('Error doing full reset:', error);
+        showNotification('❌ Er ging iets mis bij de volledige reset.', 'error');
     }
 }
 

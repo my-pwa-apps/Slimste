@@ -242,6 +242,14 @@
             <div class="scoreboard-container">
                 <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="scoreboardFamilyTitle">...</span></h1>
                 
+                <!-- PIN Code Display - Always Visible -->
+                <div class="pin-code-display" id="scoreboardPinDisplay">
+                    <h3>PIN Code voor Teams</h3>
+                    <div class="pin-code-value">
+                        <span id="scoreboardPinCode">----</span>
+                    </div>
+                </div>
+                
                 <!-- Lobby Section (shown before game starts) -->
                 <div id="lobbySection" class="lobby-section">
                     <div class="scoreboard-header">
@@ -249,13 +257,6 @@
                         <div class="live-indicator">
                             <span class="live-dot"></span>
                             <span>LOBBY</span>
-                        </div>
-                    </div>
-                    
-                    <div class="pin-code-display" id="scoreboardPinDisplay">
-                        <h3>PIN Code voor Teams</h3>
-                        <div class="pin-code-value">
-                            <span id="scoreboardPinCode">----</span>
                         </div>
                     </div>
                     
@@ -280,6 +281,14 @@
                         </button>
                     </div>
                     <div id="scoreboardContent" class="scoreboard-grid"></div>
+                    
+                    <!-- End Game Button (shown when game is complete) -->
+                    <div id="endGameSection" class="end-game-section hidden">
+                        <button id="endGameBtn" class="end-game-btn">
+                            🏆 Beëindig Spel
+                        </button>
+                        <p class="end-game-hint">Klik om het spel te beëindigen en terug te keren naar de lobby</p>
+                    </div>
                 </div>
             </div>
             
@@ -405,7 +414,14 @@
                     <hr>
                     
                     <h2>🔄 Spel Reset</h2>
-                    <button id="resetGameBtn" class="btn-danger">Reset Alle Scores</button>
+                    <p>Reset het spel om een nieuwe sessie te beginnen. Teams blijven behouden maar scores worden gereset.</p>
+                    <button id="resetGameBtn" class="btn-danger">🔄 Reset Spel (Behoud Teams)</button>
+                    
+                    <hr>
+                    
+                    <h2>🗑️ Volledige Reset</h2>
+                    <p class="warning-text">⚠️ Waarschuwing: Dit verwijdert ALLE teams en reset het volledige spel!</p>
+                    <button id="fullResetBtn" class="btn-danger">🗑️ Volledige Reset (Verwijder Alles)</button>
                 </div>
             </div>
         </div>
