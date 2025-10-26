@@ -165,11 +165,7 @@
                         <h2 class="round-title">De Open Deur</h2>
                         <div class="question-display">
                             <div id="openDeurHints" class="hints-container"></div>
-                            <div id="openDeurAnswer" class="answer-input-container">
-                                <input type="text" id="openDeurInput" placeholder="Type je antwoord...">
-                                <button id="openDeurSubmit" class="btn-primary">Bevestig</button>
-                                <button id="openDeurPass" class="btn-pass">Pas</button>
-                            </div>
+                            <div id="openDeurOptions" class="multiple-choice-options"></div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
@@ -178,26 +174,10 @@
                     <div id="puzzelRound" class="round-content">
                         <h2 class="round-title">De Puzzel - 3 op een rij</h2>
                         <div class="question-display">
-                            <div id="puzzelInstruction" class="puzzle-instruction">Vind 3 woorden op basis van de 12 hints</div>
+                            <div id="puzzelInstruction" class="puzzle-instruction">Tap 3 woorden die bij elkaar horen</div>
                             <div id="puzzelGrid" class="puzzle-grid"></div>
-                            <div id="puzzelAnswers" class="puzzle-answers">
-                                <div class="puzzle-answer-row">
-                                    <span class="answer-label">Woord 1:</span>
-                                    <input type="text" id="puzzelAnswer1" class="puzzle-answer-input" placeholder="?">
-                                    <button class="btn-check" data-answer="1">✓</button>
-                                </div>
-                                <div class="puzzle-answer-row">
-                                    <span class="answer-label">Woord 2:</span>
-                                    <input type="text" id="puzzelAnswer2" class="puzzle-answer-input" placeholder="?">
-                                    <button class="btn-check" data-answer="2">✓</button>
-                                </div>
-                                <div class="puzzle-answer-row">
-                                    <span class="answer-label">Woord 3:</span>
-                                    <input type="text" id="puzzelAnswer3" class="puzzle-answer-input" placeholder="?">
-                                    <button class="btn-check" data-answer="3">✓</button>
-                                </div>
-                                <button id="puzzelPass" class="btn-pass" style="margin-top: 15px; width: 100%;">Pas</button>
-                            </div>
+                            <div id="puzzelWordOptions" class="puzzle-word-options"></div>
+                            <div id="puzzelSelectedWords" class="puzzle-selected-words"></div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
@@ -219,13 +199,9 @@
                         <div class="question-display">
                             <div id="watWeetUSubject" class="wwu-subject"></div>
                             <div id="watWeetUTimer" class="wwu-timer">60</div>
-                            <div id="watWeetUAnswers" class="wwu-answers"></div>
-                            <div id="watWeetUInput" class="answer-input-container">
-                                <input type="text" id="watWeetUInputField" placeholder="Noem een feit...">
-                                <button id="watWeetUSubmit" class="btn-primary">Bevestig</button>
-                                <button id="watWeetUPass" class="btn-pass">Pas</button>
-                            </div>
                             <div id="watWeetUScore" class="wwu-score"></div>
+                            <div id="watWeetUOptions" class="wwu-fact-options"></div>
+                            <div id="watWeetUAnswers" class="wwu-answers"></div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
@@ -235,12 +211,9 @@
                         <h2 class="round-title">Het Collectief Geheugen</h2>
                         <div class="question-display">
                             <div id="collectiefCategory" class="memory-category"></div>
+                            <div id="collectiefScore" class="memory-score"></div>
+                            <div id="collectiefOptions" class="memory-options"></div>
                             <div id="collectiefItems" class="memory-items"></div>
-                            <div id="collectiefAnswer" class="answer-input-container">
-                                <input type="text" id="collectiefInput" placeholder="Type een item...">
-                                <button id="collectiefSubmit" class="btn-primary">Bevestig</button>
-                                <button id="collectiefPass" class="btn-pass">Pas</button>
-                            </div>
                         </div>
                         <button class="btn-back">← Terug naar Rondes</button>
                     </div>
