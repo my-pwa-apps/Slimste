@@ -26,6 +26,7 @@ let previousLeader = null; // Track previous leader for change detection
 let gameMode = null; // Track selected game mode
 let gameModeListener = null; // Track game mode listener
 let readyTeamsListener = null; // Track ready teams listener
+let isAdminLoggedIn = false; // Track admin login status
 let familyName = ''; // Track family name
 
 // Game mode configurations
@@ -97,6 +98,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check if settings are configured
     await checkIfConfigured();
     
+    // Check if admin is logged in
+    if (sessionStorage.getItem('adminLoggedIn') === 'true') {
+        isAdminLoggedIn = true;
+    }
+    
     // Check if team data exists in sessionStorage
     const savedTeam = sessionStorage.getItem('currentTeam');
     if (savedTeam) {
@@ -154,6 +160,44 @@ function initializeNavigation() {
 }
 
 function showView(viewId) {
+    // Block access to admin view if not logged in
+    if (viewId === 'adminView') {
+        const adminLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+        if (!adminLoggedIn) {
+            showNotification('❌ Je moet eerst inloggen als admin!', 'error');
+            showView('adminLoginView');
+            return;
+        }
+    }
+    
+    // Block access to scoreboard view if not logged in as admin
+    if (viewId === 'scoreboardView') {
+        const adminLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+        if (!adminLoggedIn) {
+            showNotification('❌ Je moet eerst inloggen als admin om het scorebord te bekijken!', 'error');
+            showView('adminLoginView');
+            return;
+        }
+    }
+    
+    // Block access to game view if game hasn't started or no team is logged in
+    if (viewId === 'gameView') {
+        if (!currentTeam || !currentTeam.id) {
+            showNotification('❌ Je moet eerst inloggen als team!', 'error');
+            showView('loginView');
+            return;
+        }
+        
+        // Check if game has been started by admin
+        get(ref(db, 'gameState/gameStarted')).then(snapshot => {
+            if (!snapshot.exists() || !snapshot.val()) {
+                showNotification('❌ Het spel is nog niet gestart door de admin!', 'error');
+                showView('lobbyView');
+                return;
+            }
+        });
+    }
+    
     document.querySelectorAll('.view').forEach(view => {
         view.classList.remove('active');
     });
@@ -190,6 +234,8 @@ function initializeAdminLogin() {
             }
             
             if (password === storedPassword) {
+                isAdminLoggedIn = true;
+                sessionStorage.setItem('adminLoggedIn', 'true');
                 showNotification('✅ Admin login geslaagd!', 'success');
                 showView('adminView');
                 loadAdminSettings();
@@ -418,23 +464,36 @@ function initializePasswordChange() {
 // Start game manually from admin
 function initializeGameStart() {
     const startGameBtn = document.getElementById('startGameBtn');
+    const startGameFromScoreboardBtn = document.getElementById('startGameFromScoreboard');
     
-    if (!startGameBtn) return;
+    if (startGameBtn) {
+        startGameBtn.addEventListener('click', async () => {
+            try {
+                await set(ref(db, 'gameState/gameStarted'), true);
+                showNotification('🚀 Het spel is gestart voor alle teams!', 'success');
+                
+                // Notify all teams
+                setTimeout(() => {
+                    showView('scoreboardView');
+                }, 2000);
+            } catch (error) {
+                console.error('Error starting game:', error);
+                showNotification('❌ Fout bij starten van het spel.', 'error');
+            }
+        });
+    }
     
-    startGameBtn.addEventListener('click', async () => {
-        try {
-            await set(ref(db, 'gameState/gameStarted'), true);
-            showNotification('🚀 Het spel is gestart voor alle teams!', 'success');
-            
-            // Notify all teams
-            setTimeout(() => {
-                showView('scoreboardView');
-            }, 2000);
-        } catch (error) {
-            console.error('Error starting game:', error);
-            showNotification('❌ Fout bij starten van het spel.', 'error');
-        }
-    });
+    if (startGameFromScoreboardBtn) {
+        startGameFromScoreboardBtn.addEventListener('click', async () => {
+            try {
+                await set(ref(db, 'gameState/gameStarted'), true);
+                showNotification('🚀 Het spel is gestart voor alle teams!', 'success');
+            } catch (error) {
+                console.error('Error starting game:', error);
+                showNotification('❌ Fout bij starten van het spel.', 'error');
+            }
+        });
+    }
 }
 
 // Update family name in all UI elements
@@ -806,6 +865,27 @@ function initializeRoundSelection() {
 }
 
 async function startRound(roundType) {
+    // Check if team is logged in
+    if (!currentTeam || !currentTeam.id) {
+        showNotification('❌ Je moet eerst inloggen als team!', 'error');
+        showView('loginView');
+        return;
+    }
+    
+    // Check if game has started
+    try {
+        const gameStartedSnapshot = await get(ref(db, 'gameState/gameStarted'));
+        if (!gameStartedSnapshot.exists() || !gameStartedSnapshot.val()) {
+            showNotification('❌ Het spel is nog niet gestart door de admin!', 'error');
+            showView('lobbyView');
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking game started:', error);
+        showNotification('❌ Fout bij controleren van spelstatus', 'error');
+        return;
+    }
+    
     currentRound = roundType;
     currentQuestionIndex = 0;
     
@@ -1539,114 +1619,214 @@ async function completeRound() {
 // Scoreboard with live updates
 function loadScoreboard() {
     try {
+        const gameStateRef = ref(db, 'gameState');
         const teamsRef = ref(db, 'teams');
         
         // Remove old listener if exists
         if (scoreboardListener) {
-            // onValue returns the unsubscribe function, call it
             scoreboardListener();
         }
         
-        // Set up real-time listener
-        scoreboardListener = onValue(teamsRef, (snapshot) => {
-            const teams = [];
+        // Listen to game state to determine which view to show
+        scoreboardListener = onValue(gameStateRef, (gameStateSnapshot) => {
+            const gameState = gameStateSnapshot.val() || {};
+            const gameStarted = gameState.gameStarted || false;
+            const pinCode = gameState.pinCode || '----';
+            const familyNameValue = gameState.familyName || familyName || '...';
             
-            if (snapshot.exists()) {
-                const teamsData = snapshot.val();
-                Object.keys(teamsData).forEach(key => {
-                    teams.push({ id: key, ...teamsData[key] });
-                });
+            // Update family name in scoreboard title
+            const scoreboardFamilyTitle = document.getElementById('scoreboardFamilyTitle');
+            if (scoreboardFamilyTitle) {
+                scoreboardFamilyTitle.textContent = familyNameValue.toUpperCase();
             }
             
-            // Sort by seconds (descending) - highest score first
-            teams.sort((a, b) => (b.seconds || 60) - (a.seconds || 60));
-            
-            // Check if leader changed
-            const currentLeader = teams.length > 0 ? teams[0].id : null;
-            const leaderChanged = previousLeader && currentLeader && previousLeader !== currentLeader;
-            
-            if (leaderChanged && teams.length > 1) {
-                // Show leader change notification with team info
-                const newLeaderTeam = teams[0];
-                showLeaderChangeNotification(newLeaderTeam.name, newLeaderTeam.players || []);
+            // Update PIN code display
+            const scoreboardPinCodeElem = document.getElementById('scoreboardPinCode');
+            if (scoreboardPinCodeElem) {
+                scoreboardPinCodeElem.textContent = pinCode;
             }
             
-            previousLeader = currentLeader;
+            const lobbySection = document.getElementById('lobbySection');
+            const scoreboardSection = document.getElementById('scoreboardSection');
             
-            const scoreboardContent = document.getElementById('scoreboardContent');
-            
-            // Only update if scoreboard view is active or visible
-            if (!scoreboardContent) return;
-            
-            // Smooth transition: fade out
-            scoreboardContent.style.opacity = '0.5';
-            scoreboardContent.style.transition = 'opacity 0.3s ease';
-            
-            setTimeout(() => {
-                scoreboardContent.innerHTML = '';
+            if (gameStarted) {
+                // Show scoreboard, hide lobby
+                if (lobbySection) lobbySection.classList.add('hidden');
+                if (scoreboardSection) scoreboardSection.classList.remove('hidden');
                 
-                teams.forEach((team, index) => {
-                    const teamCard = document.createElement('div');
-                    teamCard.className = 'team-card';
-                    teamCard.style.animation = 'slideInLeft 0.5s ease forwards';
-                    teamCard.style.animationDelay = `${index * 0.1}s`;
-                    teamCard.style.opacity = '0';
-                    
-                    // Add winner class for first place
-                    if (index === 0 && teams.length > 1) {
-                        teamCard.classList.add('winner');
-                    }
-                    
-                    // Add position number
-                    const position = index + 1;
-                    let medal = '';
-                    if (position === 1) medal = '🥇';
-                    else if (position === 2) medal = '🥈';
-                    else if (position === 3) medal = '🥉';
-                    
-                    // Format players list with emphasis for winner
-                    const playersArray = team.players && team.players.length > 0 ? team.players : [];
-                    const playersDisplay = playersArray.join(', ');
-                    
-                    // Only show players section if there are players
-                    let playersHtml = '';
-                    if (playersArray.length > 0) {
-                        if (position === 1 && teams.length > 1) {
-                            playersHtml = `<div class="players winner-players" style="margin-top: 10px; font-size: 1.2rem; font-weight: 600; color: var(--accent-yellow);">🎉 ${playersDisplay} 🎉</div>`;
-                        } else {
-                            playersHtml = `<div class="players" style="margin-top: 10px;">${playersDisplay}</div>`;
-                        }
-                    }
-                    
-                    teamCard.innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <h3 style="margin: 0;">#${position} ${medal} ${team.name}</h3>
-                        </div>
-                        <div class="score" style="font-size: 3rem; font-weight: 900; color: var(--accent-yellow);">
-                            ${team.seconds || 60}
-                        </div>
-                        ${playersHtml}
-                        <div style="margin-top: 10px; opacity: 0.7; font-size: 0.9rem;">
-                            Rondes voltooid: ${team.completedRounds ? team.completedRounds.length : 0}/5
-                        </div>
-                    `;
-                    
-                    scoreboardContent.appendChild(teamCard);
-                });
+                // Load actual scoreboard
+                loadActualScoreboard();
+            } else {
+                // Show lobby, hide scoreboard
+                if (lobbySection) lobbySection.classList.remove('hidden');
+                if (scoreboardSection) scoreboardSection.classList.add('hidden');
                 
-                if (teams.length === 0) {
-                    scoreboardContent.innerHTML = '<p style="text-align: center; font-size: 1.5rem; color: white;">Nog geen teams aangemeld!</p>';
-                }
-                
-                // Fade back in
-                scoreboardContent.style.opacity = '1';
-            }, 300);
+                // Load lobby teams list
+                loadLobbyTeams();
+            }
         }, (error) => {
-            console.error('Error loading scoreboard:', error);
+            console.error('Error loading game state:', error);
         });
     } catch (error) {
         console.error('Error setting up scoreboard listener:', error);
     }
+}
+
+// Load lobby teams with ready status
+function loadLobbyTeams() {
+    const teamsRef = ref(db, 'teams');
+    
+    onValue(teamsRef, (snapshot) => {
+        const lobbyTeamsList = document.getElementById('lobbyTeamsList');
+        if (!lobbyTeamsList) return;
+        
+        lobbyTeamsList.innerHTML = '';
+        
+        if (snapshot.exists()) {
+            const teamsData = snapshot.val();
+            const teams = Object.keys(teamsData).map(key => ({ id: key, ...teamsData[key] }));
+            
+            if (teams.length === 0) {
+                lobbyTeamsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">Nog geen teams aangemeld...</p>';
+                return;
+            }
+            
+            teams.forEach(team => {
+                const teamCard = document.createElement('div');
+                teamCard.className = 'lobby-team-card';
+                teamCard.style.cssText = `
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 20px;
+                    border-radius: 15px;
+                    margin-bottom: 15px;
+                    border: 2px solid ${team.ready ? 'var(--accent-yellow)' : 'rgba(255, 255, 255, 0.2)'};
+                    transition: all 0.3s ease;
+                `;
+                
+                const playersDisplay = team.players && team.players.length > 0 
+                    ? `<div style="margin-top: 10px; opacity: 0.8; font-size: 0.9rem;">${team.players.join(', ')}</div>` 
+                    : '';
+                
+                const readyBadge = team.ready 
+                    ? '<span style="background: var(--accent-yellow); color: var(--primary-blue); padding: 5px 15px; border-radius: 20px; font-weight: 600; margin-left: 10px;">✓ Klaar</span>'
+                    : '<span style="background: rgba(255, 255, 255, 0.1); padding: 5px 15px; border-radius: 20px; opacity: 0.6; margin-left: 10px;">Wacht...</span>';
+                
+                teamCard.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <h3 style="margin: 0; font-size: 1.5rem;">${team.name}</h3>
+                        ${readyBadge}
+                    </div>
+                    ${playersDisplay}
+                `;
+                
+                lobbyTeamsList.appendChild(teamCard);
+            });
+        } else {
+            lobbyTeamsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">Nog geen teams aangemeld...</p>';
+        }
+    });
+}
+
+// Load actual scoreboard (existing implementation)
+function loadActualScoreboard() {
+    const teamsRef = ref(db, 'teams');
+    
+    onValue(teamsRef, (snapshot) => {
+        const teams = [];
+        
+        if (snapshot.exists()) {
+            const teamsData = snapshot.val();
+            Object.keys(teamsData).forEach(key => {
+                teams.push({ id: key, ...teamsData[key] });
+            });
+        }
+        
+        // Sort by seconds (descending) - highest score first
+        teams.sort((a, b) => (b.seconds || 60) - (a.seconds || 60));
+        
+        // Check if leader changed
+        const currentLeader = teams.length > 0 ? teams[0].id : null;
+        const leaderChanged = previousLeader && currentLeader && previousLeader !== currentLeader;
+        
+        if (leaderChanged && teams.length > 1) {
+            // Show leader change notification with team info
+            const newLeaderTeam = teams[0];
+            showLeaderChangeNotification(newLeaderTeam.name, newLeaderTeam.players || []);
+        }
+        
+        previousLeader = currentLeader;
+        
+        const scoreboardContent = document.getElementById('scoreboardContent');
+        
+        // Only update if scoreboard view is active or visible
+        if (!scoreboardContent) return;
+        
+        // Smooth transition: fade out
+        scoreboardContent.style.opacity = '0.5';
+        scoreboardContent.style.transition = 'opacity 0.3s ease';
+        
+        setTimeout(() => {
+            scoreboardContent.innerHTML = '';
+            
+            teams.forEach((team, index) => {
+                const teamCard = document.createElement('div');
+                teamCard.className = 'team-card';
+                teamCard.style.animation = 'slideInLeft 0.5s ease forwards';
+                teamCard.style.animationDelay = `${index * 0.1}s`;
+                teamCard.style.opacity = '0';
+                
+                // Add winner class for first place
+                if (index === 0 && teams.length > 1) {
+                    teamCard.classList.add('winner');
+                }
+                
+                // Add position number
+                const position = index + 1;
+                let medal = '';
+                if (position === 1) medal = '🥇';
+                else if (position === 2) medal = '🥈';
+                else if (position === 3) medal = '🥉';
+                
+                // Format players list with emphasis for winner
+                const playersArray = team.players && team.players.length > 0 ? team.players : [];
+                const playersDisplay = playersArray.join(', ');
+                
+                // Only show players section if there are players
+                let playersHtml = '';
+                if (playersArray.length > 0) {
+                    if (position === 1 && teams.length > 1) {
+                        playersHtml = `<div class="players winner-players" style="margin-top: 10px; font-size: 1.2rem; font-weight: 600; color: var(--accent-yellow);">🎉 ${playersDisplay} 🎉</div>`;
+                    } else {
+                        playersHtml = `<div class="players" style="margin-top: 10px;">${playersDisplay}</div>`;
+                    }
+                }
+                
+                teamCard.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">#${position} ${medal} ${team.name}</h3>
+                    </div>
+                    <div class="score" style="font-size: 3rem; font-weight: 900; color: var(--accent-yellow);">
+                        ${team.seconds || 60}
+                    </div>
+                    ${playersHtml}
+                    <div style="margin-top: 10px; opacity: 0.7; font-size: 0.9rem;">
+                        Rondes voltooid: ${team.completedRounds ? team.completedRounds.length : 0}/5
+                    </div>
+                `;
+                
+                scoreboardContent.appendChild(teamCard);
+            });
+            
+            if (teams.length === 0) {
+                scoreboardContent.innerHTML = '<p style="text-align: center; font-size: 1.5rem; color: white;">Nog geen teams aangemeld!</p>';
+            }
+            
+            // Fade back in
+            scoreboardContent.style.opacity = '1';
+        }, 300);
+    }, (error) => {
+        console.error('Error loading scoreboard:', error);
+    });
 }
 
 // Show leader change notification

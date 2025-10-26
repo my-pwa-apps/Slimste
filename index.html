@@ -239,18 +239,46 @@
         <div id="scoreboardView" class="view">
             <div class="scoreboard-container">
                 <h1 class="main-title">DE SLIMSTE<br><span class="highlight" id="scoreboardFamilyTitle">...</span></h1>
-                <div class="scoreboard-header">
-                    <h2>Scorebord</h2>
-                    <div class="live-indicator">
-                        <span class="live-dot"></span>
-                        <span>LIVE</span>
+                
+                <!-- Lobby Section (shown before game starts) -->
+                <div id="lobbySection" class="lobby-section">
+                    <div class="scoreboard-header">
+                        <h2>Lobby - Wachten op Teams</h2>
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span>LOBBY</span>
+                        </div>
                     </div>
-                    <button id="toggleMusic" class="music-toggle">
-                        <span class="music-icon">🔊</span>
-                        <span class="music-text">Muziek</span>
+                    
+                    <div class="pin-code-display" id="scoreboardPinDisplay">
+                        <h3>PIN Code voor Teams</h3>
+                        <div class="pin-code-value">
+                            <span id="scoreboardPinCode">----</span>
+                        </div>
+                    </div>
+                    
+                    <div id="lobbyTeamsList" class="lobby-teams-list"></div>
+                    
+                    <button id="startGameFromScoreboard" class="btn-primary btn-large">
+                        🚀 Start het Spel
                     </button>
                 </div>
-                <div id="scoreboardContent" class="scoreboard-grid"></div>
+                
+                <!-- Scoreboard Section (shown after game starts) -->
+                <div id="scoreboardSection" class="scoreboard-section hidden">
+                    <div class="scoreboard-header">
+                        <h2>Scorebord</h2>
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span>LIVE</span>
+                        </div>
+                        <button id="toggleMusic" class="music-toggle">
+                            <span class="music-icon">🔊</span>
+                            <span class="music-text">Muziek</span>
+                        </button>
+                    </div>
+                    <div id="scoreboardContent" class="scoreboard-grid"></div>
+                </div>
             </div>
             
             <!-- Background Music -->
