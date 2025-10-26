@@ -419,9 +419,11 @@ async function addSampleQuestions() {
                 timestamp: Date.now()
             };
             
-            const questionsRef = firebase.database().ref('questions');
-            const newQuestionRef = questionsRef.push();
-            await newQuestionRef.set(questionData);
+            // Use the modular Firebase API that's used in app.js
+            const { ref, push, set } = window.firebaseModules;
+            const questionsRef = ref(db, 'questions');
+            const newQuestionRef = push(questionsRef);
+            await set(newQuestionRef, questionData);
             
             successCount++;
             console.log(`✅ Added ${question.type} question`);

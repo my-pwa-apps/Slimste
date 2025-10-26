@@ -13,6 +13,10 @@ import {
     child
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
+// Expose Firebase modules to window for console scripts
+window.db = db;
+window.firebaseModules = { ref, set, push, get, update, remove, onValue };
+
 // Global State
 let currentTeam = null;
 let currentRound = null;
