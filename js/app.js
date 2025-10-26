@@ -168,6 +168,7 @@ function showView(viewId) {
 
 // Setup View - Game Mode Selection
 function initializeSetupView() {
+    const adminPasswordInput = document.getElementById('adminPassword');
     const familyNameInput = document.getElementById('familyNameInput');
     const modeButtons = document.querySelectorAll('.game-mode-btn');
     const confirmButton = document.getElementById('confirmGameMode');
@@ -187,22 +188,41 @@ function initializeSetupView() {
             button.classList.add('selected');
             selectedMode = button.getAttribute('data-mode');
             
-            // Enable confirm button only if family name is also filled
-            confirmButton.disabled = !(selectedMode && familyNameInput.value.trim());
+            // Enable confirm button only if all fields are filled
+            confirmButton.disabled = !(selectedMode && familyNameInput.value.trim() && adminPasswordInput.value.trim());
         });
     });
     
-    // Also check family name input for enabling button
-    familyNameInput.addEventListener('input', () => {
-        confirmButton.disabled = !(selectedMode && familyNameInput.value.trim());
-    });
+    // Check all fields for enabling button
+    const checkFields = () => {
+        confirmButton.disabled = !(selectedMode && familyNameInput.value.trim() && adminPasswordInput.value.trim());
+    };
+    
+    familyNameInput.addEventListener('input', checkFields);
+    adminPasswordInput.addEventListener('input', checkFields);
     
     confirmButton.addEventListener('click', async () => {
-        if (!selectedMode || !familyNameInput.value.trim()) return;
+        if (!selectedMode || !familyNameInput.value.trim() || !adminPasswordInput.value.trim()) return;
         
+        const adminPasswordValue = adminPasswordInput.value.trim();
         const familyNameValue = familyNameInput.value.trim();
         
         try {
+            // Check if admin password already exists
+            const existingPasswordSnapshot = await get(ref(db, 'gameState/adminPassword'));
+            
+            if (existingPasswordSnapshot.exists()) {
+                // Validate against existing password
+                const storedPassword = existingPasswordSnapshot.val();
+                if (storedPassword !== adminPasswordValue) {
+                    showNotification('❌ Verkeerd admin wachtwoord!', 'error');
+                    return;
+                }
+            } else {
+                // First time setup - save the password
+                await set(ref(db, 'gameState/adminPassword'), adminPasswordValue);
+            }
+            
             // Save game mode and family name to Firebase
             await set(ref(db, 'gameState/mode'), selectedMode);
             await set(ref(db, 'gameState/familyName'), familyNameValue);
@@ -217,10 +237,10 @@ function initializeSetupView() {
             updateFamilyNameInUI();
             
             // Show success message
-            showNotification(`Spelmodus ingesteld: ${GAME_MODES[selectedMode].name}`, 'success');
+            showNotification(`✅ Spelmodus ingesteld: ${GAME_MODES[selectedMode].name}`, 'success');
         } catch (error) {
             console.error('Error setting game mode:', error);
-            alert('Fout bij instellen spelmodus. Probeer opnieuw.');
+            showNotification('❌ Fout bij instellen spelmodus. Probeer opnieuw.', 'error');
         }
     });
 }
