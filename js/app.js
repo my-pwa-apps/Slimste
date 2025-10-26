@@ -437,32 +437,6 @@ function initializeGameStart() {
     });
 }
 
-// Listen to game mode changes
-// Listen to game mode changes (kept for real-time updates)
-async function listenToGameMode() {
-    try {
-        // Listen to family name changes
-        const familyNameRef = ref(db, 'gameState/familyName');
-        onValue(familyNameRef, (snapshot) => {
-            if (snapshot.exists()) {
-                familyName = snapshot.val();
-                updateFamilyNameInUI();
-            }
-        });
-        
-        // Listen to game mode changes
-        const modeRef = ref(db, 'gameState/mode');
-        onValue(modeRef, (snapshot) => {
-            if (snapshot.exists()) {
-                gameMode = snapshot.val();
-                displayGameModeInfo();
-            }
-        });
-    } catch (error) {
-        console.error('Error listening to game mode:', error);
-    }
-}
-
 // Update family name in all UI elements
 function updateFamilyNameInUI() {
     const displayName = familyName.toUpperCase() || '...';
