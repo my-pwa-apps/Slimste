@@ -574,6 +574,10 @@ function initializeGameStart() {
     if (startGameFromScoreboardBtn) {
         startGameFromScoreboardBtn.addEventListener('click', async () => {
             try {
+                // Generate and store shared questions for all rounds
+                await generateSharedQuestions();
+                
+                // Start the game
                 await set(ref(db, 'gameState/gameStarted'), true);
                 showNotification('🚀 Het spel is gestart voor alle teams!', 'success');
             } catch (error) {
@@ -581,6 +585,96 @@ function initializeGameStart() {
                 showNotification('❌ Fout bij starten van het spel.', 'error');
             }
         });
+    }
+}
+
+// Generate shared questions for all teams when game starts
+async function generateSharedQuestions() {
+    try {
+        // Check if shared questions already exist
+        const existingQuestionsRef = ref(db, 'gameState/roundQuestions');
+        const existingSnapshot = await get(existingQuestionsRef);
+        
+        if (existingSnapshot.exists()) {
+            console.log('Shared questions already exist, skipping generation');
+            return;
+        }
+        
+        console.log('Generating shared questions for all rounds...');
+        
+        // Load all questions from database
+        const questionsRef = ref(db, 'questions');
+        const snapshot = await get(questionsRef);
+        
+        if (!snapshot.exists()) {
+            console.warn('No questions in database');
+            return;
+        }
+        
+        const questionsData = snapshot.val();
+        const roundTypes = ['open-deur', 'puzzel', 'woordzoeker', 'wat-weet-u', 'collectief-geheugen'];
+        
+        for (const roundType of roundTypes) {
+            // Collect all questions for this round type
+            const roundQuestions = [];
+            Object.keys(questionsData).forEach(key => {
+                const question = questionsData[key];
+                if (question.type === roundType) {
+                    // Validate question format before adding
+                    if (isValidQuestion(question, roundType)) {
+                        roundQuestions.push({ id: key, ...question });
+                    } else {
+                        console.warn(`Skipping invalid ${roundType} question:`, key);
+                    }
+                }
+            });
+            
+            // Shuffle questions
+            const shuffled = shuffleArray(roundQuestions);
+            
+            // Limit questions based on game mode
+            let limitedQuestions = shuffled;
+            if (gameMode && GAME_MODES[gameMode]) {
+                const maxQuestions = GAME_MODES[gameMode].questionsPerRound[roundType];
+                if (maxQuestions && shuffled.length > maxQuestions) {
+                    limitedQuestions = shuffled.slice(0, maxQuestions);
+                }
+            }
+            
+            // Store in gameState/roundQuestions
+            if (limitedQuestions.length > 0) {
+                await set(ref(db, `gameState/roundQuestions/${roundType}`), limitedQuestions);
+                console.log(`Stored ${limitedQuestions.length} questions for ${roundType}`);
+            } else {
+                console.warn(`No valid questions found for ${roundType}`);
+            }
+        }
+        
+        console.log('✅ Shared questions generated and stored');
+    } catch (error) {
+        console.error('Error generating shared questions:', error);
+        throw error;
+    }
+}
+
+// Validate question format based on round type
+function isValidQuestion(question, roundType) {
+    switch (roundType) {
+        case 'open-deur':
+            return question.hints && Array.isArray(question.hints) && question.answer;
+        case 'puzzel':
+            return question.clues1 && Array.isArray(question.clues1) && 
+                   question.clues2 && Array.isArray(question.clues2) && 
+                   question.clues3 && Array.isArray(question.clues3) &&
+                   question.answer1 && question.answer2 && question.answer3;
+        case 'woordzoeker':
+            return question.question && question.answer;
+        case 'wat-weet-u':
+            return question.subject && question.facts && Array.isArray(question.facts);
+        case 'collectief-geheugen':
+            return question.category && question.answers && Array.isArray(question.answers);
+        default:
+            return true;
     }
 }
 
@@ -1095,6 +1189,21 @@ async function returnToRoundSelection() {
 
 async function loadQuestionsForRound(roundType) {
     try {
+        // First, try to load shared questions from gameState
+        const sharedQuestionsRef = ref(db, `gameState/roundQuestions/${roundType}`);
+        const sharedSnapshot = await get(sharedQuestionsRef);
+        
+        if (sharedSnapshot.exists()) {
+            // Use the shared questions that were set when the game started
+            currentQuestions = sharedSnapshot.val();
+            console.log(`Loaded ${currentQuestions.length} shared questions for ${roundType}`);
+            return;
+        }
+        
+        // Fallback: If no shared questions exist, load and shuffle locally
+        // This shouldn't happen in normal gameplay, but provides backwards compatibility
+        console.warn(`No shared questions found for ${roundType}, loading locally`);
+        
         const questionsRef = ref(db, 'questions');
         const snapshot = await get(questionsRef);
         
@@ -1104,19 +1213,23 @@ async function loadQuestionsForRound(roundType) {
             Object.keys(questionsData).forEach(key => {
                 const question = questionsData[key];
                 if (question.type === roundType) {
-                    currentQuestions.push({ id: key, ...question });
+                    // Validate question format before adding
+                    if (isValidQuestion(question, roundType)) {
+                        currentQuestions.push({ id: key, ...question });
+                    } else {
+                        console.warn(`Skipping invalid ${roundType} question:`, key);
+                    }
                 }
             });
         }
         
-        // ALWAYS shuffle questions to ensure randomness every time
+        // Shuffle questions
         currentQuestions = shuffleArray(currentQuestions);
         
         // Limit questions based on game mode
         if (gameMode && GAME_MODES[gameMode]) {
             const maxQuestions = GAME_MODES[gameMode].questionsPerRound[roundType];
             if (maxQuestions && currentQuestions.length > maxQuestions) {
-                // Take only the required number (already shuffled above)
                 currentQuestions = currentQuestions.slice(0, maxQuestions);
             }
         }
@@ -1125,7 +1238,7 @@ async function loadQuestionsForRound(roundType) {
             console.warn(`No questions found for round: ${roundType}`);
         }
         
-        console.log(`Loaded ${currentQuestions.length} random questions for ${roundType}`);
+        console.log(`Loaded ${currentQuestions.length} local questions for ${roundType}`);
     } catch (error) {
         console.error('Error loading questions:', error);
     }
@@ -2526,6 +2639,9 @@ async function resetGame() {
         // Reset game state (keep teams, reset scores and game started status)
         await set(ref(db, 'gameState/gameStarted'), false);
         
+        // Clear shared questions so they get regenerated on next game start
+        await remove(ref(db, 'gameState/roundQuestions'));
+        
         // Reset all team scores and completed rounds
         const teamsSnapshot = await get(ref(db, 'teams'));
         if (teamsSnapshot.exists()) {
@@ -2558,6 +2674,9 @@ async function fullResetGame() {
         
         // Reset game state
         await set(ref(db, 'gameState/gameStarted'), false);
+        
+        // Clear shared questions
+        await remove(ref(db, 'gameState/roundQuestions'));
         
         // Clear session storage
         sessionStorage.removeItem('currentTeam');
