@@ -17,6 +17,79 @@ import {
 window.db = db;
 window.firebaseModules = { ref, set, push, get, update, remove, onValue };
 
+// Helper function for flexible answer matching
+function normalizeText(text) {
+    if (!text) return '';
+    
+    return text
+        .toLowerCase()
+        .trim()
+        // Remove all punctuation and special characters
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()'"?]/g, '')
+        // Normalize special characters (accents, umlauts, etc.)
+        .replace(/[àáâãäå]/g, 'a')
+        .replace(/[èéêë]/g, 'e')
+        .replace(/[ìíîï]/g, 'i')
+        .replace(/[òóôõö]/g, 'o')
+        .replace(/[ùúûü]/g, 'u')
+        .replace(/[ñ]/g, 'n')
+        .replace(/[ç]/g, 'c')
+        .replace(/[ý]/g, 'y')
+        // Remove extra whitespace
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Calculate Levenshtein distance for fuzzy matching
+function levenshteinDistance(str1, str2) {
+    const matrix = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j] + 1      // deletion
+                );
+            }
+        }
+    }
+    
+    return matrix[str2.length][str1.length];
+}
+
+// Check if answers match with tolerance for typos
+function answersMatch(userAnswer, correctAnswer, allowTypos = true) {
+    const normalized1 = normalizeText(userAnswer);
+    const normalized2 = normalizeText(correctAnswer);
+    
+    // Exact match after normalization
+    if (normalized1 === normalized2) {
+        return true;
+    }
+    
+    // If typos are allowed, use Levenshtein distance
+    if (allowTypos && normalized2.length > 3) {
+        const distance = levenshteinDistance(normalized1, normalized2);
+        // Allow 1 typo for words up to 8 chars, 2 typos for longer words
+        const maxDistance = normalized2.length <= 8 ? 1 : 2;
+        return distance <= maxDistance;
+    }
+    
+    return false;
+}
+
 // Global State
 let currentTeam = null;
 let currentRound = null;
@@ -1317,10 +1390,10 @@ function initializeOpenDeur() {
     const input = document.getElementById('openDeurInput');
     
     submitBtn.onclick = () => {
-        const answer = input.value.trim().toLowerCase();
-        const correctAnswer = question.answer.toLowerCase();
+        const answer = input.value.trim();
+        const correctAnswer = question.answer;
         
-        if (answer === correctAnswer) {
+        if (answersMatch(answer, correctAnswer)) {
             handleCorrectAnswer(15);
             input.value = '';
             currentQuestionIndex++;
@@ -1420,10 +1493,10 @@ function initializePuzzel() {
     // Check answer function
     const checkAnswer = (answerNum) => {
         const input = document.getElementById(`puzzelAnswer${answerNum}`);
-        const answer = input.value.trim().toLowerCase();
-        const correctAnswer = question[`answer${answerNum}`].toLowerCase();
+        const answer = input.value.trim();
+        const correctAnswer = question[`answer${answerNum}`];
         
-        if (answer === correctAnswer) {
+        if (answersMatch(answer, correctAnswer)) {
             foundAnswers[answerNum - 1] = true;
             input.classList.add('correct');
             input.disabled = true;
@@ -1514,7 +1587,7 @@ function initializeWoordzoeker() {
             // Check if answer is correct
             if (selectedLetters.length === letters.length) {
                 const answer = selectedLetters.map(l => l.letter).join('');
-                if (answer === question.answer.toUpperCase()) {
+                if (answersMatch(answer, question.answer)) {
                     handleCorrectAnswer(15);
                     
                     setTimeout(() => {
@@ -1644,13 +1717,13 @@ function initializeWatWeetU() {
     submitBtn.onclick = () => {
         if (!gameActive) return;
         
-        const answer = input.value.trim().toLowerCase();
+        const answer = input.value.trim();
         if (!answer) return;
         
-        // Normalize for comparison
-        const normalizedFactsLower = question.facts.map(f => f.toLowerCase());
+        // Normalize user answer for comparison
+        const normalizedAnswer = normalizeText(answer);
         
-        if (foundAnswers.includes(answer)) {
+        if (foundAnswers.includes(normalizedAnswer)) {
             // Visual feedback for duplicate
             const feedback = document.createElement('div');
             feedback.style.cssText = `
@@ -1673,18 +1746,25 @@ function initializeWatWeetU() {
             return;
         }
         
-        // Check if answer is in the facts list (fuzzy matching)
+        // Check if answer matches any fact (with fuzzy matching)
         let isCorrect = false;
         let matchedFact = null;
         
-        for (let i = 0; i < normalizedFactsLower.length; i++) {
-            if (normalizedFactsLower[i].includes(answer) || answer.includes(normalizedFactsLower[i])) {
-                if (!foundAnswers.includes(normalizedFactsLower[i])) {
-                    isCorrect = true;
-                    matchedFact = question.facts[i];
-                    foundAnswers.push(normalizedFactsLower[i]);
-                    break;
-                }
+        for (let i = 0; i < question.facts.length; i++) {
+            const fact = question.facts[i];
+            const normalizedFact = normalizeText(fact);
+            
+            // Skip if already found
+            if (foundAnswers.includes(normalizedFact)) {
+                continue;
+            }
+            
+            // Check for fuzzy match
+            if (answersMatch(answer, fact)) {
+                isCorrect = true;
+                matchedFact = fact;
+                foundAnswers.push(normalizedFact);
+                break;
             }
         }
         
@@ -1759,26 +1839,49 @@ function initializeCollectiefGeheugen() {
     const maxIncorrect = 3;
     
     submitBtn.onclick = () => {
-        const answer = input.value.trim().toLowerCase();
-        const correctAnswers = question.answers.map(a => a.toLowerCase());
+        const answer = input.value.trim();
+        if (!answer) return;
         
-        if (foundItems.includes(answer)) {
+        const normalizedAnswer = normalizeText(answer);
+        
+        // Check if already found (using normalized version)
+        if (foundItems.some(item => normalizeText(item) === normalizedAnswer)) {
             showNotification('⚠️ Dit item is al gevonden!', 'error');
             input.value = '';
             return;
         }
         
-        if (correctAnswers.includes(answer)) {
-            foundItems.push(answer);
+        // Check if answer matches any correct answer (with fuzzy matching)
+        let isCorrect = false;
+        let matchedAnswer = null;
+        
+        for (const correctAnswer of question.answers) {
+            const normalizedCorrect = normalizeText(correctAnswer);
+            
+            // Skip if already found
+            if (foundItems.some(item => normalizeText(item) === normalizedCorrect)) {
+                continue;
+            }
+            
+            // Check for match with typo tolerance
+            if (answersMatch(answer, correctAnswer)) {
+                isCorrect = true;
+                matchedAnswer = correctAnswer;
+                break;
+            }
+        }
+        
+        if (isCorrect) {
+            foundItems.push(matchedAnswer);
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'memory-item';
-            itemDiv.textContent = input.value.trim();
+            itemDiv.textContent = matchedAnswer;
             itemsDiv.appendChild(itemDiv);
             
             input.value = '';
             
-            if (foundItems.length === correctAnswers.length) {
+            if (foundItems.length === question.answers.length) {
                 handleCorrectAnswer(30);
                 
                 setTimeout(() => {
@@ -1872,8 +1975,17 @@ function handleIncorrectAnswer() {
 }
 
 async function updateTeamSeconds(delta) {
+    const previousSeconds = teamSeconds;
     teamSeconds += delta;
-    if (teamSeconds < 0) teamSeconds = 0;
+    
+    if (teamSeconds <= 0) {
+        teamSeconds = 0;
+        
+        // If we just hit 0 seconds, automatically show answer and end round
+        if (previousSeconds > 0 && currentRound) {
+            handleTimeExpired();
+        }
+    }
     
     document.getElementById('teamSeconds').textContent = teamSeconds;
     
@@ -1887,6 +1999,142 @@ async function updateTeamSeconds(delta) {
             console.error('Error updating team seconds:', error);
         }
     }
+}
+
+function handleTimeExpired() {
+    console.log('Time expired! Showing correct answer and ending round...');
+    
+    // Get current question and show correct answer based on round type
+    const question = currentQuestions[currentQuestionIndex];
+    
+    if (!question) {
+        completeRound();
+        return;
+    }
+    
+    let correctAnswerText = '';
+    
+    switch (currentRound) {
+        case 'open-deur':
+            correctAnswerText = question.answer || 'Geen antwoord beschikbaar';
+            break;
+        case 'puzzel':
+            correctAnswerText = `${question.answer1 || '?'}, ${question.answer2 || '?'}, ${question.answer3 || '?'}`;
+            break;
+        case 'woordzoeker':
+            correctAnswerText = question.answer || 'Geen antwoord beschikbaar';
+            break;
+        case 'wat-weet-u':
+            correctAnswerText = `Onderwerp: ${question.subject || 'Onbekend'}`;
+            break;
+        case 'collectief-geheugen':
+            correctAnswerText = `Categorie: ${question.category || 'Onbekend'}`;
+            break;
+        default:
+            correctAnswerText = 'Geen antwoord beschikbaar';
+    }
+    
+    // Show notification with correct answer
+    showNotification(`⏰ Tijd verlopen! Het juiste antwoord was: ${correctAnswerText}`, 'warning', 5000);
+    
+    // Show the correct answer visually based on round type
+    setTimeout(() => {
+        if (currentRound === 'open-deur') {
+            showCorrectAnswerForOpenDeur(question);
+        } else if (currentRound === 'puzzel') {
+            showCorrectAnswerForPuzzel(question);
+        } else if (currentRound === 'woordzoeker') {
+            showCorrectAnswerForWoordzoeker(question);
+        } else if (currentRound === 'wat-weet-u') {
+            showCorrectAnswerForWatWeetU(question);
+        } else if (currentRound === 'collectief-geheugen') {
+            showCorrectAnswerForCollectiefGeheugen(question);
+        }
+        
+        // End the round after showing answer
+        setTimeout(() => {
+            completeRound();
+        }, 3000);
+    }, 500);
+}
+
+function showCorrectAnswerForOpenDeur(question) {
+    const answerElement = document.getElementById('openDeurAnswer');
+    if (answerElement) {
+        answerElement.textContent = question.answer.toUpperCase();
+        answerElement.style.color = '#4CAF50';
+        answerElement.style.fontSize = '3rem';
+        answerElement.style.fontWeight = 'bold';
+    }
+}
+
+function showCorrectAnswerForPuzzel(question) {
+    const input1 = document.getElementById('puzzelInput1');
+    const input2 = document.getElementById('puzzelInput2');
+    const input3 = document.getElementById('puzzelInput3');
+    
+    if (input1) {
+        input1.value = question.answer1;
+        input1.style.background = 'rgba(76, 175, 80, 0.3)';
+        input1.disabled = true;
+    }
+    if (input2) {
+        input2.value = question.answer2;
+        input2.style.background = 'rgba(76, 175, 80, 0.3)';
+        input2.disabled = true;
+    }
+    if (input3) {
+        input3.value = question.answer3;
+        input3.style.background = 'rgba(76, 175, 80, 0.3)';
+        input3.disabled = true;
+    }
+}
+
+function showCorrectAnswerForWoordzoeker(question) {
+    const answerInput = document.getElementById('woordzoekerAnswer');
+    if (answerInput) {
+        answerInput.value = question.answer;
+        answerInput.style.background = 'rgba(76, 175, 80, 0.3)';
+        answerInput.disabled = true;
+    }
+}
+
+function showCorrectAnswerForWatWeetU(question) {
+    const answersDiv = document.getElementById('watWeetUAnswers');
+    if (answersDiv && question.facts) {
+        answersDiv.innerHTML = '';
+        question.facts.forEach(fact => {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'wwu-answer-item';
+            answerDiv.style.background = 'rgba(76, 175, 80, 0.3)';
+            answerDiv.textContent = fact;
+            answersDiv.appendChild(answerDiv);
+        });
+    }
+    
+    const input = document.getElementById('watWeetUInput');
+    const submitBtn = document.getElementById('watWeetUSubmit');
+    if (input) input.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+}
+
+function showCorrectAnswerForCollectiefGeheugen(question) {
+    const answersDiv = document.getElementById('collectiefGeheugenAnswers');
+    if (answersDiv && question.answers) {
+        answersDiv.innerHTML = '';
+        question.answers.forEach(answer => {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'cg-answer-item';
+            answerDiv.style.background = 'rgba(76, 175, 80, 0.3)';
+            answerDiv.textContent = answer;
+            answersDiv.appendChild(answerDiv);
+        });
+    }
+    
+    const input = document.getElementById('collectiefGeheugenInput');
+    const submitBtn = document.getElementById('collectiefGeheugenSubmit');
+    if (input) input.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 }
 
 async function completeRound() {
