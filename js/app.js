@@ -1241,17 +1241,34 @@ function initializePuzzel() {
     }
     
     const question = currentQuestions[currentQuestionIndex];
+    console.log('Puzzel question:', question);
+    
     const gridDiv = document.getElementById('puzzelGrid');
     
     // Clear grid
     gridDiv.innerHTML = '';
     
+    // Check if clues exist and are arrays
+    if (!question.clues1 || !question.clues2 || !question.clues3) {
+        console.error('Missing clues in question:', question);
+        document.getElementById('puzzelInstruction').innerHTML = '<p style="color: red;">Fout: Deze puzzel heeft geen hints! Voeg ze toe in het admin panel.</p>';
+        return;
+    }
+    
     // Create 3x4 grid (12 cells) with all clues mixed
     const allClues = [
-        ...question.clues1,
-        ...question.clues2,
-        ...question.clues3
+        ...(Array.isArray(question.clues1) ? question.clues1 : []),
+        ...(Array.isArray(question.clues2) ? question.clues2 : []),
+        ...(Array.isArray(question.clues3) ? question.clues3 : [])
     ];
+    
+    console.log('All clues:', allClues, 'Total:', allClues.length);
+    
+    if (allClues.length !== 12) {
+        console.error('Expected 12 clues but got:', allClues.length);
+        document.getElementById('puzzelInstruction').innerHTML = `<p style="color: red;">Fout: Deze puzzel heeft ${allClues.length} hints in plaats van 12!</p>`;
+        return;
+    }
     
     // Shuffle clues
     const shuffled = [...allClues].sort(() => Math.random() - 0.5);
